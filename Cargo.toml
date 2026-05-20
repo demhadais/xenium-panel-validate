@@ -1,0 +1,7 @@
+[package]
+edition = "2024"
+
+[dependencies]
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }

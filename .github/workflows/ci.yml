@@ -1,0 +1,61 @@
+name: Check Rust Code
+on:
+  push:
+    paths:
+      - "**/*.rs"
+      - "**/Cargo.toml"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -Dwarnings
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v6
+
+      - name: Cache cargo files
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+          cache-workspace-crates: true
+          cache-on-failure: true
+
+      - name: Lint
+        run: cargo clippy --workspace --all-features
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v6
+
+      - name: Cache cargo files
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+          cache-workspace-crates: true
+          cache-on-failure: true
+
+      - name: Install nightly toolchain
+        run: rustup component add --toolchain nightly-2026-04-08 rustfmt # Update this every now and then
+
+      - name: Format
+        run: cargo +nightly-2026-04-08 fmt -- --check
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v6
+
+      - name: Cache cargo files
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+          cache-workspace-crates: true
+          cache-on-failure: true
+
+      - name: Test
+        run: cargo test --workspace --all-features
