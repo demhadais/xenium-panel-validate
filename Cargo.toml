@@ -1,7 +1,9 @@
 [package]
+name = "xenium-prepaneldesign-validator"
 edition = "2024"
 
 [dependencies]
+noodles = { version = "0.110.0", features = ["gtf"] }
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
