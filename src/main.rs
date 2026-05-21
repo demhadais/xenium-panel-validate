@@ -3,14 +3,14 @@ use xenium_prepaneldesign_validator::{TargetListValidationSettings, validate_tar
 
 #[derive(Parser)]
 enum Cli {
-    ValidateTargetList(TargetListValidationSettings),
+    ValidateTargets(TargetListValidationSettings),
 }
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     let errors = match cli {
-        Cli::ValidateTargetList(settings) => validate_target_list(&settings)?,
+        Cli::ValidateTargets(settings) => validate_target_list(&settings)?,
     };
 
     if errors.len() != 0 {

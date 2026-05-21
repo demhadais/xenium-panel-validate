@@ -1,31 +1,34 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::Context;
+use csv::StringRecord;
 use serde::Deserialize;
 
 use crate::gene_annotation::GeneAnnotations;
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct Target {
-    #[serde(alias = "target name", alias = "Target Name")]
-    target_name: String,
-    #[serde(alias = "ensembl id", alias = "Ensembl ID")]
-    ensembl_id: String,
-    #[serde(alias = "group", alias = "Group")]
-    group: String,
-    #[serde(alias = "is backup", alias = "Is Backup")]
-    is_backup: bool,
-}
+pub fn read_target_list_from_csv(path: &Path) -> anyhow::Result<Vec<Target>> {
+    fn sanitize_row(row: &StringRecord) -> StringRecord {
+        StringRecord::from_iter(row.iter().map(|s| s.trim().to_lowercase()))
+    }
 
-pub fn read_target_list_from_path(path: &Path) -> anyhow::Result<Vec<Target>> {
-    let context = || format!("failed to read {}", path.to_str().unwrap());
+    let mut input_csv = csv::Reader::from_path(path).context("failed to read target-list")?;
+    let headers = input_csv
+        .headers()
+        .context("failed to read CSV header")
+        .map(sanitize_row)?;
 
-    let csv_reader = csv::Reader::from_path(path).with_context(context)?;
+    let mut targets = Vec::with_capacity(500);
 
-    Ok(csv_reader
-        .into_deserialize()
-        .collect::<Result<Vec<_>, _>>()
-        .with_context(context)?)
+    for row in input_csv.records() {
+        let row = row.map(|row| sanitize_row(&row))?;
+
+        targets.push(
+            row.deserialize(Some(&headers))
+                .context("failed to deserialize row as target")?,
+        );
+    }
+
+    Ok(targets)
 }
 
 #[derive(Clone, Debug, thiserror::Error)]
@@ -81,4 +84,15 @@ fn validate_target_is_in_genome(
     }
 
     Ok(())
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Target {
+    #[serde(alias = "target name")]
+    target_name: String,
+    #[serde(alias = "ensembl id")]
+    ensembl_id: String,
+    group: String,
+    #[serde(alias = "is backup")]
+    is_backup: bool,
 }

@@ -20,6 +20,10 @@ impl GeneAnnotations {
     }
 
     pub fn from_reader(mut reader: GeneAnnotationFileReader) -> anyhow::Result<Self> {
+        fn lowercase_bstr(string: &bstr::BStr) -> Vec<u8> {
+            string.iter().map(u8::to_ascii_lowercase).collect()
+        }
+
         // This is massive, but realistically shouldn't be that large in terms of memory
         // usage
         let mut gene_annotations = HashMap::with_capacity(2_000_000);
@@ -43,8 +47,8 @@ impl GeneAnnotations {
             // I love how this library has no way to just own the data, so you have to copy
             // it :)
             gene_annotations.insert(
-                gene_id.iter().copied().collect(),
-                gene_name.iter().copied().collect(),
+                lowercase_bstr(gene_id.as_ref()),
+                lowercase_bstr(gene_name.as_ref()),
             );
         }
 
