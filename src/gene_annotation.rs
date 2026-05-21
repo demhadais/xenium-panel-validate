@@ -26,7 +26,7 @@ impl GeneAnnotations {
 
         // This is massive, but realistically shouldn't be that large in terms of memory
         // usage
-        let mut gene_annotations = HashMap::with_capacity(2_000_000);
+        let mut gene_annotations = HashMap::with_capacity(4_000_000);
 
         for (i, record) in reader.record_bufs().enumerate() {
             let record = record.context(format!(

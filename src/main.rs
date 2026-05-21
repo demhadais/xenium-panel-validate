@@ -10,6 +10,7 @@ enum Cli {
     ValidateTargets {
         #[clap(flatten)]
         settings: TargetListValidationSettings,
+        #[clap(short, long)]
         errors_path: PathBuf,
     },
 }
