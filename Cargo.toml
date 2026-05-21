@@ -3,7 +3,13 @@ name = "xenium-prepaneldesign-validator"
 edition = "2024"
 
 [dependencies]
-noodles = { version = "0.110.0", features = ["gtf"] }
+anyhow = "1.0.102"
+bstr = "1.12.1"
+clap = { version = "4.6.1", features = ["derive"] }
+csv = "1.4.0"
+noodles = { version = "0.110.0", features = ["gtf", "gff"] }
+serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "2.0.18"
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
