@@ -1,21 +1,39 @@
+use std::path::{Path, PathBuf};
+
+use anyhow::Context;
 use clap::Parser;
+use serde::Serialize;
 use xenium_prepaneldesign_validator::{TargetListValidationSettings, validate_target_list};
 
 #[derive(Parser)]
 enum Cli {
-    ValidateTargets(TargetListValidationSettings),
+    ValidateTargets {
+        #[clap(flatten)]
+        settings: TargetListValidationSettings,
+        errors_path: PathBuf,
+    },
+}
+
+fn write_errors(path: &Path, errors: &[impl Serialize]) -> anyhow::Result<()> {
+    std::fs::write(path, serde_json::to_string(errors)?).context(format!(
+        "failed to write errors to {}",
+        path.to_str().unwrap()
+    ))?;
+
+    Ok(())
 }
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    let errors = match cli {
-        Cli::ValidateTargets(settings) => validate_target_list(&settings)?,
+    let (errors_path, errors) = match cli {
+        Cli::ValidateTargets {
+            settings,
+            errors_path,
+        } => (errors_path, validate_target_list(&settings)?),
     };
 
-    if errors.len() != 0 {
-        dbg!(&errors[0]);
-    }
+    write_errors(&errors_path, &errors)?;
 
     Ok(())
 }

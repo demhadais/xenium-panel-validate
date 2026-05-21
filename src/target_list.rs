@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::Context;
 use csv::StringRecord;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::gene_annotation::GeneAnnotations;
 
@@ -31,7 +31,7 @@ pub fn read_target_list_from_csv(path: &Path) -> anyhow::Result<Vec<Target>> {
     Ok(targets)
 }
 
-#[derive(Clone, Debug, thiserror::Error)]
+#[derive(Clone, Debug, Deserialize, Serialize, thiserror::Error)]
 pub enum TargetValidationError {
     #[error("ID {id} not found in genome")]
     TargetIdNotInGenome { id: String },
