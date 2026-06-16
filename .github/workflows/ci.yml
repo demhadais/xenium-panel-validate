@@ -39,10 +39,10 @@ jobs:
           cache-on-failure: true
 
       - name: Install nightly toolchain
-        run: rustup component add --toolchain nightly-2026-04-08 rustfmt # Update this every now and then
+        run: rustup component add --toolchain nightly-2026-05-19 rustfmt # Update this every now and then
 
       - name: Format
-        run: cargo +nightly-2026-04-08 fmt -- --check
+        run: cargo +nightly-2026-05-19 fmt -- --check
 
   test:
     runs-on: ubuntu-latest
