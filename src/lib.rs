@@ -21,6 +21,7 @@ pub struct TargetListValidationSettings {
     gene_annotations_path: PathBuf,
 }
 
+#[allow(clippy::missing_errors_doc)]
 pub fn validate_target_list(
     TargetListValidationSettings {
         target_list_path,

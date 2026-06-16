@@ -8,7 +8,7 @@ use crate::gene_annotation::GeneAnnotations;
 
 pub fn read_target_list_from_csv(path: &Path) -> anyhow::Result<Vec<Target>> {
     fn sanitize_row(row: &StringRecord) -> StringRecord {
-        StringRecord::from_iter(row.iter().map(|s| s.trim().to_lowercase()))
+        row.iter().map(|s| s.trim().to_lowercase()).collect()
     }
 
     let mut input_csv = csv::Reader::from_path(path).context("failed to read target-list")?;
@@ -64,7 +64,7 @@ pub fn validate_targets_are_in_genome(
 
 fn validate_target_is_in_genome(
     Target {
-        target_name,
+        name: target_name,
         ensembl_id,
         ..
     }: &Target,
@@ -90,10 +90,12 @@ fn validate_target_is_in_genome(
 #[derive(Clone, Debug, Deserialize)]
 pub struct Target {
     #[serde(alias = "target name")]
-    target_name: String,
+    name: String,
     #[serde(alias = "ensembl id")]
     ensembl_id: String,
+    #[allow(dead_code)]
     group: String,
+    #[allow(dead_code)]
     #[serde(alias = "is backup")]
     is_backup: bool,
 }
