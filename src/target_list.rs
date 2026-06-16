@@ -32,6 +32,7 @@ pub fn read_target_list_from_csv(path: &Path) -> anyhow::Result<Vec<Target>> {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, thiserror::Error)]
+#[serde(rename_all = "snake_case")]
 pub enum TargetValidationError {
     #[error("ID {id} not found in genome")]
     TargetIdNotInGenome { id: String },
