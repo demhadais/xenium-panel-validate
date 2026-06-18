@@ -155,11 +155,17 @@ people can submit the spreadsheet template directly. A web UI comes later and is
 out of scope here, but keeping the validation logic in the library (not the CLI)
 is what makes that later UI cheap, so keep the split clean.
 
+## Tests
+- Use some of the previous panel designs (stripped of annotations) to show common failure modes and suggested fixes. 
+- Also include some examples of good / bad input patterns
+- Have CI run `cargo test` on some gold standard fixtures.
+
 ## Not doing yet
 
 - Nonstandard / custom targets (isoforms, transgenes, microbial, cross-species). 
 - Probeset-count suggestions from the reference dataset.
 - Saving the reference dataset reformmated for 10x.
+- Minimum genes per group to retain functionality.  Needs more thought.
 - The web UI.
 - Any distribution/installer work.
 
