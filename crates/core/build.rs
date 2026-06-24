@@ -116,8 +116,6 @@ fn make_enums(
     genes: &HashSet<(String, String)>,
     unavailable_gene_ids: &HashSet<String>,
 ) -> String {
-    const N_GENES: usize = 30_000;
-
     let mut ensembl_id_enum_variants = Vec::with_capacity(N_GENES);
     let mut ensembl_id_to_gene_name_match_arms = Vec::with_capacity(N_GENES);
 
@@ -144,6 +142,7 @@ fn make_enums(
         }
 
         impl super::MapToGeneName for #ensembl_id_enum_name {
+            #[allow(clippy::match_same_arms, clippy::too_many_lines)]
             fn gene_name(self) -> &'static str {
                 match self {
                     #(#ensembl_id_to_gene_name_match_arms),*
