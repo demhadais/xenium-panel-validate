@@ -110,49 +110,21 @@ fn make_enums(
     const N_GENES: usize = 30_000;
 
     let mut ensembl_id_enum_variants = Vec::with_capacity(N_GENES);
-    let mut gene_name_enum_variants = Vec::with_capacity(N_GENES);
     let mut ensembl_id_to_gene_name_match_arms = Vec::with_capacity(N_GENES);
-    let mut gene_name_to_ensembl_id_match_arms = Vec::with_capacity(N_GENES);
 
     let ensembl_id_enum_name = Ident::new(&format!("{enum_prefix}EnsemblId"), Span::call_site());
-    let gene_name_enum_name = Ident::new(&format!("{enum_prefix}GeneName"), Span::call_site());
 
     for (ensembl_id, gene_name) in genes {
-        let ensembl_id = ensembl_id.split('.').next().unwrap();
-
         if unavailable_gene_ids.contains(ensembl_id) {
             continue;
         }
 
         let ensembl_id_variant = Ident::new(&ensembl_id.to_pascal_case(), Span::call_site());
 
-        let naive_gene_name = gene_name.replace(".", "").to_pascal_case();
+        let gene_name = LitStr::new(gene_name, Span::call_site());
 
-        let gene_name_variant = if gene_name.chars().next().unwrap().is_numeric() {
-            let gene_name_variant = Ident::new(&format!("_{naive_gene_name}"), Span::call_site());
-
-            gene_name_variant
-        } else {
-            let gene_name_variant = Ident::new(&naive_gene_name, Span::call_site());
-
-            gene_name_variant
-        };
-
-        let lowercase_gene_name = LitStr::new(&gene_name.to_lowercase(), Span::call_site());
-        let serde_annotation = quote! { #[serde(rename = #lowercase_gene_name)] };
-
-        ensembl_id_to_gene_name_match_arms
-            .push(quote! { Self::#ensembl_id_variant => #gene_name_enum_name::#gene_name_variant });
-
-        gene_name_to_ensembl_id_match_arms.push(
-            quote! { Self::#gene_name_variant => #ensembl_id_enum_name::#ensembl_id_variant },
-        );
-
+        ensembl_id_to_gene_name_match_arms.push(quote! { Self::#ensembl_id_variant => #gene_name });
         ensembl_id_enum_variants.push(ensembl_id_variant);
-        gene_name_enum_variants.push(quote! {
-            #serde_annotation
-            #gene_name_variant
-        });
     }
 
     Ok(quote! {
@@ -162,24 +134,10 @@ fn make_enums(
             #(#ensembl_id_enum_variants),*
         }
 
-        #[derive(Debug, Clone, Copy, ::serde::Deserialize, ::serde::Serialize, PartialEq)]
-        #[serde(rename_all = "lowercase")]
-        pub enum #gene_name_enum_name {
-            #(#gene_name_enum_variants),*
-        }
-
-        impl super::MapToGeneName<#gene_name_enum_name> for #ensembl_id_enum_name {
-            fn gene_name(self) -> #gene_name_enum_name {
+        impl super::MapToGeneName for #ensembl_id_enum_name {
+            fn gene_name(self) -> &'static str {
                 match self {
                     #(#ensembl_id_to_gene_name_match_arms),*
-                }
-            }
-        }
-
-        impl super::MapToEnsemblId<#ensembl_id_enum_name> for #gene_name_enum_name {
-            fn ensembl_id(self) -> #ensembl_id_enum_name {
-                match self {
-                    #(#gene_name_to_ensembl_id_match_arms),*
                 }
             }
         }
@@ -231,7 +189,12 @@ fn parse_ensembl_id_and_name_from_gtf_record<'a>(
     };
 
     Ok(Some((
-        gene_id.to_str().expect("Ensembl ID should be UTF8"),
+        gene_id
+            .to_str()
+            .expect("Ensembl ID should be UTF8")
+            .split('.')
+            .next()
+            .unwrap(),
         gene_name.to_str().expect("Gene name should be UTF8"),
     )))
 }

@@ -3,17 +3,16 @@ use std::collections::HashMap;
 use csv::StringRecord;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::gene_list::gene::{MapToEnsemblId, MapToGeneName};
+use crate::gene_list::gene::MapToGeneName;
 
 mod gene;
 
-fn parse_target_list<EI, GN>(
+fn parse_target_list<EI>(
     target_list: &str,
     field_aliases: &HashMap<String, String>,
-) -> csv::Result<ParsedTargetList<EI, GN>>
+) -> csv::Result<ParsedTargetList<EI>>
 where
-    EI: MapToGeneName<GN> + DeserializeOwned + Copy,
-    GN: MapToEnsemblId<EI> + DeserializeOwned + PartialEq + Copy,
+    EI: MapToGeneName + DeserializeOwned + Copy,
 {
     // Trim and lowercase the whole target-list to avoid whitespace and casing
     // errors
@@ -48,10 +47,10 @@ where
     })
 }
 
-fn rename_fields<EI, GN>(
+fn rename_fields<EI>(
     original_fieldnames: &StringRecord,
     field_aliases: &HashMap<String, String>,
-) -> (StringRecord, Error<EI, GN>) {
+) -> (StringRecord, Error<EI>) {
     let mut renamed_fields = StringRecord::new();
     let mut errors = Vec::new();
 
@@ -80,13 +79,12 @@ fn rename_fields<EI, GN>(
     )
 }
 
-fn parse_target_from_record<EI, GN>(
+fn parse_target_from_record<EI>(
     mut record: StringRecord,
     fieldnames: Option<&StringRecord>,
-) -> Result<ValidTarget<EI, GN>, Vec<ErrorInner<EI, GN>>>
+) -> Result<ValidTarget<EI>, Vec<ErrorInner<EI>>>
 where
-    EI: MapToGeneName<GN> + DeserializeOwned + Copy,
-    GN: MapToEnsemblId<EI> + DeserializeOwned + PartialEq + Copy,
+    EI: MapToGeneName + DeserializeOwned + Copy,
 {
     // Trim the individual fields of the record
     record.trim();
@@ -106,18 +104,17 @@ where
     validate_target(unvalidated_target)
 }
 
-fn validate_target<EI, GN>(
+fn validate_target<EI>(
     UnvalidatedTarget {
         ensembl_id,
         gene_name,
         group,
         is_backup,
         must_have,
-    }: UnvalidatedTarget<EI, GN>,
-) -> Result<ValidTarget<EI, GN>, Vec<ErrorInner<EI, GN>>>
+    }: UnvalidatedTarget<EI>,
+) -> Result<ValidTarget<EI>, Vec<ErrorInner<EI>>>
 where
-    EI: MapToGeneName<GN> + Copy,
-    GN: MapToEnsemblId<EI> + PartialEq + Copy,
+    EI: MapToGeneName + Copy,
 {
     // The number of possible errors in a row is 6 (the same as the number of
     // variants of ErrorInner)
@@ -128,7 +125,7 @@ where
     let mut valid_is_backup = None;
     let mut valid_must_have = None;
 
-    match validate_ensembl_id_gene_name_pair(ensembl_id, gene_name) {
+    match validate_ensembl_id_gene_name_pair(ensembl_id, gene_name.as_deref()) {
         Ok((ensembl_id, gene_name)) => {
             valid_ensembl_id = Some(ensembl_id);
             valid_gene_name = Some(gene_name);
@@ -166,13 +163,12 @@ where
     }
 }
 
-fn validate_ensembl_id_gene_name_pair<EI, GN>(
+fn validate_ensembl_id_gene_name_pair<EI>(
     ensembl_id: Option<EI>,
-    gene_name: Option<GN>,
-) -> Result<(EI, GN), ErrorInner<EI, GN>>
+    gene_name: Option<&str>,
+) -> Result<(EI, &'static str), ErrorInner<EI>>
 where
-    EI: MapToGeneName<GN> + Copy,
-    GN: MapToEnsemblId<EI> + PartialEq + Copy,
+    EI: MapToGeneName + Copy,
 {
     match (ensembl_id, gene_name) {
         (Some(ensembl_id), Some(submitted_gene_name)) => {
@@ -180,11 +176,11 @@ where
             if correct_gene_name != submitted_gene_name {
                 Err(ErrorInner::EnsemblIdGeneNameMismatch {
                     ensembl_id,
-                    submitted_gene_name,
+                    submitted_gene_name: submitted_gene_name.to_owned(),
                     correct_gene_name,
                 })
             } else {
-                Ok((ensembl_id, submitted_gene_name))
+                Ok((ensembl_id, correct_gene_name))
             }
         }
         (Some(ensembl_id), None) => Err(ErrorInner::NoGeneName {
@@ -192,17 +188,16 @@ where
             probable_gene_name: ensembl_id.gene_name(),
         }),
         (None, Some(gene_name)) => Err(ErrorInner::NoEnsemblId {
-            gene_name,
-            probable_ensembl_id: gene_name.ensembl_id(),
+            gene_name: gene_name.to_owned(),
         }),
         (None, None) => Err(ErrorInner::MissingGene),
     }
 }
 
-fn parse_bool_from_str<EI, GN>(
+fn parse_bool_from_str<EI>(
     s: Option<&str>,
     fieldname: &'static str,
-) -> Result<bool, ErrorInner<EI, GN>> {
+) -> Result<bool, ErrorInner<EI>> {
     let Some(s) = s else {
         return Err(ErrorInner::MissingField(fieldname));
     };
@@ -213,49 +208,48 @@ fn parse_bool_from_str<EI, GN>(
 }
 
 #[derive(Clone, Debug, Serialize)]
-struct ParsedTargetList<EI, GN> {
-    valid_targets: Vec<ValidTarget<EI, GN>>,
-    errors: Vec<Error<EI, GN>>,
+struct ParsedTargetList<EI> {
+    valid_targets: Vec<ValidTarget<EI>>,
+    errors: Vec<Error<EI>>,
 }
 
 #[derive(Clone, Debug, Serialize)]
-struct ValidTarget<EI, GN> {
+struct ValidTarget<EI> {
     ensembl_id: EI,
-    gene_name: GN,
+    gene_name: &'static str,
     group: String,
     is_backup: bool,
     must_have: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct UnvalidatedTarget<EI, GN> {
+struct UnvalidatedTarget<EI> {
     ensembl_id: Option<EI>,
-    gene_name: Option<GN>,
+    gene_name: Option<String>,
     group: Option<String>,
     is_backup: Option<String>,
     must_have: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
-struct Error<EI, GN> {
+struct Error<EI> {
     line_number: Option<usize>,
-    errors: Vec<ErrorInner<EI, GN>>,
+    errors: Vec<ErrorInner<EI>>,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
-enum ErrorInner<EI, GN> {
+enum ErrorInner<EI> {
     MissingGene,
     MissingField(&'static str),
     ParseBool {
         value: String,
     },
     NoEnsemblId {
-        gene_name: GN,
-        probable_ensembl_id: EI,
+        gene_name: String,
     },
     NoGeneName {
         ensembl_id: EI,
-        probable_gene_name: GN,
+        probable_gene_name: &'static str,
     },
     RenamedField {
         original_fieldname: String,
@@ -263,8 +257,8 @@ enum ErrorInner<EI, GN> {
     },
     EnsemblIdGeneNameMismatch {
         ensembl_id: EI,
-        submitted_gene_name: GN,
-        correct_gene_name: GN,
+        submitted_gene_name: String,
+        correct_gene_name: &'static str,
     },
     // TODO: Unknown or Unrecognized?
     InvalidGene(InvalidGeneError),
