@@ -5,9 +5,10 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::gene_list::gene::MapToGeneName;
 
-mod gene;
+pub mod gene;
 
-fn parse_target_list<EI>(
+#[allow(clippy::missing_errors_doc)]
+pub fn parse_target_list<EI>(
     target_list: &str,
     field_aliases: &HashMap<String, String>,
 ) -> csv::Result<ParsedTargetList<EI>>
@@ -55,10 +56,7 @@ fn rename_fields<EI>(
     let mut errors = Vec::new();
 
     for original in original_fieldnames {
-        let renamed = field_aliases
-            .get(original)
-            .map(String::as_str)
-            .unwrap_or(original);
+        let renamed = field_aliases.get(original).map_or(original, String::as_str);
 
         renamed_fields.push_field(renamed);
 
@@ -66,7 +64,7 @@ fn rename_fields<EI>(
             errors.push(ErrorInner::RenamedField {
                 original_fieldname: original.to_owned(),
                 correct_fieldname: renamed.to_owned(),
-            })
+            });
         }
     }
 
@@ -173,14 +171,15 @@ where
     match (ensembl_id, gene_name) {
         (Some(ensembl_id), Some(submitted_gene_name)) => {
             let correct_gene_name = ensembl_id.gene_name();
-            if correct_gene_name != submitted_gene_name {
+
+            if correct_gene_name == submitted_gene_name {
+                Ok((ensembl_id, correct_gene_name))
+            } else {
                 Err(ErrorInner::EnsemblIdGeneNameMismatch {
                     ensembl_id,
                     submitted_gene_name: submitted_gene_name.to_owned(),
                     correct_gene_name,
                 })
-            } else {
-                Ok((ensembl_id, correct_gene_name))
             }
         }
         (Some(ensembl_id), None) => Err(ErrorInner::NoGeneName {
@@ -208,7 +207,7 @@ fn parse_bool_from_str<EI>(
 }
 
 #[derive(Clone, Debug, Serialize)]
-struct ParsedTargetList<EI> {
+pub struct ParsedTargetList<EI> {
     valid_targets: Vec<ValidTarget<EI>>,
     errors: Vec<Error<EI>>,
 }

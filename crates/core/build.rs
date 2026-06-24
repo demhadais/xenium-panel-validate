@@ -3,6 +3,7 @@ use std::{
     fs::File,
     io::BufReader,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use anyhow::Context;
@@ -19,6 +20,14 @@ const N_GENES: usize = 24_000;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    if !option_env!("BUILD_XENIUM_PANEL_VALIDATE")
+        .map(bool::from_str)
+        .transpose()?
+        .is_some_and(|build| build)
+    {
+        return Ok(());
+    }
+
     println!("cargo::rerun-if-changed=genes.toml");
 
     let Config { human, mouse } = toml::from_slice(include_bytes!("genes.toml"))
@@ -43,10 +52,10 @@ async fn main() -> anyhow::Result<()> {
         mouse_prime_unavailable,
     ] = unavailable_gene_sets.as_array().unwrap();
 
-    let human_v1_enums = make_enums("XeniumV1Human", &annotations, &human_v1_unavailable)?;
+    let human_v1_enums = make_enums("XeniumV1Human", &annotations, human_v1_unavailable);
     std::fs::write("src/gene_list/gene/xenium_v1_human.rs", human_v1_enums)?;
 
-    let human_prime_enums = make_enums("XeniumPrimeHuman", &annotations, &human_prime_unavailable)?;
+    let human_prime_enums = make_enums("XeniumPrimeHuman", &annotations, human_prime_unavailable);
     std::fs::write(
         "src/gene_list/gene/xenium_prime_human.rs",
         human_prime_enums,
@@ -55,10 +64,10 @@ async fn main() -> anyhow::Result<()> {
     annotations.clear();
     read_gene_annotations_into(&mouse.gene_annotations_path, &mut annotations)?;
 
-    let mouse_v1_enums = make_enums("XeniumV1Mouse", &annotations, &mouse_v1_unavailable)?;
+    let mouse_v1_enums = make_enums("XeniumV1Mouse", &annotations, mouse_v1_unavailable);
     std::fs::write("src/gene_list/gene/xenium_v1_mouse.rs", mouse_v1_enums)?;
 
-    let mouse_prime_enums = make_enums("XeniumPrimeMouse", &annotations, &mouse_prime_unavailable)?;
+    let mouse_prime_enums = make_enums("XeniumPrimeMouse", &annotations, mouse_prime_unavailable);
     std::fs::write(
         "src/gene_list/gene/xenium_prime_mouse.rs",
         mouse_prime_enums,
@@ -91,7 +100,7 @@ fn read_gene_annotations_into(
     for record in reader.record_bufs() {
         let record = record?;
 
-        let Some((ensembl_id, gene_name)) = parse_ensembl_id_and_name_from_gtf_record(&record)?
+        let Some((ensembl_id, gene_name)) = parse_ensembl_id_and_name_from_gtf_record(&record)
         else {
             continue;
         };
@@ -106,7 +115,7 @@ fn make_enums(
     enum_prefix: &str,
     genes: &HashSet<(String, String)>,
     unavailable_gene_ids: &HashSet<String>,
-) -> anyhow::Result<String> {
+) -> String {
     const N_GENES: usize = 30_000;
 
     let mut ensembl_id_enum_variants = Vec::with_capacity(N_GENES);
@@ -127,7 +136,7 @@ fn make_enums(
         ensembl_id_enum_variants.push(ensembl_id_variant);
     }
 
-    Ok(quote! {
+    quote! {
         #[derive(Debug, Clone, Copy, ::serde::Deserialize, ::serde::Serialize, PartialEq)]
         #[serde(rename_all = "lowercase")]
         pub enum #ensembl_id_enum_name {
@@ -143,7 +152,7 @@ fn make_enums(
         }
 
     }
-    .to_string())
+    .to_string()
 }
 
 async fn fetch_unavailable_ensembl_ids(
@@ -169,17 +178,15 @@ async fn fetch_unavailable_ensembl_ids(
     Ok(gene_ids)
 }
 
-fn parse_ensembl_id_and_name_from_gtf_record<'a>(
-    record: &'a RecordBuf,
-) -> anyhow::Result<Option<(&'a str, &'a str)>> {
+fn parse_ensembl_id_and_name_from_gtf_record(record: &RecordBuf) -> Option<(&str, &str)> {
     if record.ty() != "gene" {
-        return Ok(None);
+        return None;
     }
 
     let attributes = record.attributes();
 
     if attributes.get(b"gene_type") != Some(&Value::String(BString::from("protein_coding"))) {
-        return Ok(None);
+        return None;
     }
 
     let (Some(Value::String(gene_id)), Some(Value::String(gene_name))) =
@@ -188,7 +195,7 @@ fn parse_ensembl_id_and_name_from_gtf_record<'a>(
         unreachable!("'gene_id' and 'gene_name' should be strings");
     };
 
-    Ok(Some((
+    Some((
         gene_id
             .to_str()
             .expect("Ensembl ID should be UTF8")
@@ -196,5 +203,5 @@ fn parse_ensembl_id_and_name_from_gtf_record<'a>(
             .next()
             .unwrap(),
         gene_name.to_str().expect("Gene name should be UTF8"),
-    )))
+    ))
 }

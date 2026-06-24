@@ -1,1 +1,1 @@
-mod gene_list;
+pub mod gene_list;
