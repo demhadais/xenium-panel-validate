@@ -1,9 +1,11 @@
+# https://www.10xgenomics.com/support/software/xenium-panel-designer/latest/tutorials/create-gene-list#noprobe
+#
 [human]
-xenium_v1_unavailable_genes_url = ""
-xenium_prime_unavailable_genes_url = ""
-gene_annotations_path = ""
+xenium_v1_unavailable_genes_url = "https://cdn.10xgenomics.com/raw/upload/v1702081344/software-support/Xenium-panels/human_2020-A-ref_noprobe_genesv2.csv"
+xenium_prime_unavailable_genes_url = "https://cdn.10xgenomics.com/raw/upload/v1715034995/software-support/Xenium-panels/human-2020-A-ref-noprobe-genes-xenium-prime.csv"
+gene_annotations_path = "gencode.v32.primary_assembly.annotation.gtf.gz"
 
 [mouse]
-xenium_v1_unavailable_genes_url = ""
-xenium_prime_unavailable_genes_url = ""
-gene_annotations_path = ""
+xenium_v1_unavailable_genes_url = "https://cdn.10xgenomics.com/raw/upload/v1702081344/software-support/Xenium-panels/mouse_2020-A-ref_noprobe_genesv2.csv"
+xenium_prime_unavailable_genes_url = "https://cdn.10xgenomics.com/raw/upload/v1715034995/software-support/Xenium-panels/mouse-2020-A-ref-noprobe-genes-xenium-prime.csv"
+gene_annotations_path = "gencode.vM23.primary_assembly.annotation.gtf.gz"

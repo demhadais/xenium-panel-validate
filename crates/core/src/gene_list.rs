@@ -15,11 +15,13 @@ where
     EI: MapToGeneName<GN> + DeserializeOwned + Copy,
     GN: MapToEnsemblId<EI> + DeserializeOwned + PartialEq + Copy,
 {
-    // Trim and lowercase the whole target-list to avoid whitespace and casing errors
+    // Trim and lowercase the whole target-list to avoid whitespace and casing
+    // errors
     let target_list = target_list.trim().to_lowercase();
     let mut reader = csv::Reader::from_reader(target_list.as_bytes());
 
-    // We initialize the list of errors from the field-renaming, but it doesn't prevent us from continuing the parsing
+    // We initialize the list of errors from the field-renaming, but it doesn't
+    // prevent us from continuing the parsing
     let (fieldnames, error) = rename_fields(reader.headers()?, field_aliases);
     let fieldnames = Some(&fieldnames);
 
@@ -90,9 +92,13 @@ where
     record.trim();
 
     let Ok(unvalidated_target) = record.deserialize(fieldnames) else {
-        // Since every field is an optional string besides the Ensembl ID and gene name, we know that the above deserialization could only fail due to an invalid Ensembl ID or gene name. As such, we report to the user what the invalid values were by deserializing as plain strings
+        // Since every field is an optional string besides the Ensembl ID and gene name,
+        // we know that the above deserialization could only fail due to an invalid
+        // Ensembl ID or gene name. As such, we report to the user what the invalid
+        // values were by deserializing as plain strings
         return Err(vec![ErrorInner::InvalidGene(
-            // Unwrapping is fine because extra fields won't cause a failure, nor will missing fields
+            // Unwrapping is fine because extra fields won't cause a failure, nor will missing
+            // fields
             record.deserialize(fieldnames).unwrap(),
         )]);
     };
@@ -113,7 +119,8 @@ where
     EI: MapToGeneName<GN> + Copy,
     GN: MapToEnsemblId<EI> + PartialEq + Copy,
 {
-    // The number of possible errors in a row is 6 (the same as the number of variants of ErrorInner)
+    // The number of possible errors in a row is 6 (the same as the number of
+    // variants of ErrorInner)
     let mut errors = Vec::with_capacity(8);
 
     let mut valid_ensembl_id = None;
@@ -143,7 +150,9 @@ where
         Err(err) => errors.push(err),
     }
 
-    // Technically, we don't have any compile-time safety that these unwraps are safe. It would be nice to implement that, but I'm not sure how to do that simply at the moment
+    // Technically, we don't have any compile-time safety that these unwraps are
+    // safe. It would be nice to implement that, but I'm not sure how to do that
+    // simply at the moment
     if errors.is_empty() {
         Ok(ValidTarget {
             ensembl_id: valid_ensembl_id.unwrap(),

@@ -18,6 +18,12 @@ quote.workspace = true
 proc-macro2.workspace = true
 reqwest.workspace = true
 tokio.workspace = true
+syn.workspace = true
+bstr.workspace = true
+heck.workspace = true
+url.workspace = true
+csv.workspace = true
+futures.workspace = true
 
 [lints]
 workspace = true
