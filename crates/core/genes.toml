@@ -1,0 +1,9 @@
+[human]
+xenium_v1_unavailable_genes_url = ""
+xenium_prime_unavailable_genes_url = ""
+gene_annotations_path = ""
+
+[mouse]
+xenium_v1_unavailable_genes_url = ""
+xenium_prime_unavailable_genes_url = ""
+gene_annotations_path = ""
