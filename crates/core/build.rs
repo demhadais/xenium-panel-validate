@@ -50,14 +50,14 @@ async fn main() -> anyhow::Result<()> {
     write_map_to_file(
         &PathBuf::from("src/gene_list/chemistry/xenium_v1_human.rs"),
         "XENIUM_V1_HUMAN_ENSEMBL_IDS",
-        human_v1_map,
+        &human_v1_map,
     )?;
 
     let human_prime_map = construct_map(&annotations, human_prime_unavailable);
     write_map_to_file(
         &PathBuf::from("src/gene_list/chemistry/xenium_prime_human.rs"),
         "XENIUM_PRIME_HUMAN_ENSEMBL_IDS",
-        human_prime_map,
+        &human_prime_map,
     )?;
 
     annotations.clear();
@@ -67,14 +67,14 @@ async fn main() -> anyhow::Result<()> {
     write_map_to_file(
         &PathBuf::from("src/gene_list/chemistry/xenium_v1_mouse.rs"),
         "XENIUM_V1_MOUSE_ENSEMBL_IDS",
-        mouse_v1_map,
+        &mouse_v1_map,
     )?;
 
     let mouse_prime_enums = construct_map(&annotations, mouse_prime_unavailable);
     write_map_to_file(
         &PathBuf::from("src/gene_list/chemistry/xenium_prime_mouse.rs"),
         "XENIUM_PRIME_MOUSE_ENSEMBL_IDS",
-        mouse_prime_enums,
+        &mouse_prime_enums,
     )?;
 
     Ok(())
@@ -109,7 +109,7 @@ fn read_gene_annotations_into(
             continue;
         };
 
-        genes_buf.insert((ensembl_id.to_owned(), gene_name.to_owned()));
+        genes_buf.insert((ensembl_id, gene_name));
     }
 
     Ok(())
@@ -135,7 +135,7 @@ fn construct_map<'a>(
 fn write_map_to_file(
     path: &Path,
     map_name: &str,
-    map: phf_codegen::Map<'_, &str>,
+    map: &phf_codegen::Map<'_, &str>,
 ) -> anyhow::Result<()> {
     let file = File::create(path)
         .with_context(|| format!("failed to write file {}", path.to_str().unwrap()))?;

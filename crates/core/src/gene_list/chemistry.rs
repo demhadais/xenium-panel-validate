@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 use phf::{PhfEq, PhfHash};
 use serde::{Deserialize, Serialize};
 
@@ -60,12 +61,14 @@ impl PartialEq<UnvalidatedEnsemblId> for GeneName {
     }
 }
 
+#[must_use]
 pub fn xenium_v1_human_ensembl_id_to_gene_name(
     ensembl_id: &UnvalidatedEnsemblId,
 ) -> Option<(EnsemblId, GeneName)> {
     ensembl_id_to_gene_name(ensembl_id, &xenium_v1_human::XENIUM_V1_HUMAN_ENSEMBL_IDS)
 }
 
+#[must_use]
 pub fn xenium_prime_human_ensembl_id_to_gene_name(
     ensembl_id: &UnvalidatedEnsemblId,
 ) -> Option<(EnsemblId, GeneName)> {
@@ -75,12 +78,14 @@ pub fn xenium_prime_human_ensembl_id_to_gene_name(
     )
 }
 
+#[must_use]
 pub fn xenium_v1_mouse_ensembl_id_to_gene_name(
     ensembl_id: &UnvalidatedEnsemblId,
 ) -> Option<(EnsemblId, GeneName)> {
     ensembl_id_to_gene_name(ensembl_id, &xenium_v1_mouse::XENIUM_V1_MOUSE_ENSEMBL_IDS)
 }
 
+#[must_use]
 pub fn xenium_prime_mouse_ensembl_id_to_gene_name(
     ensembl_id: &UnvalidatedEnsemblId,
 ) -> Option<(EnsemblId, GeneName)> {

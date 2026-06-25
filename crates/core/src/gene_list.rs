@@ -51,7 +51,7 @@ fn rename_fields(
     let mut renamed_fields = StringRecord::new();
     let mut errors = Vec::new();
 
-    for original in original_fieldnames.iter() {
+    for original in &original_fieldnames {
         let renamed = field_aliases
             .get(&original.to_lowercase())
             .map_or(original, String::as_str);
@@ -173,11 +173,10 @@ fn validate_ensembl_id_gene_name_pair(
                     gene_name: maybe_submitted_gene_name.cloned(),
                 })?;
 
-            let submitted_gene_name =
-                maybe_submitted_gene_name.ok_or_else(|| ErrorInner::NoGeneName {
-                    ensembl_id,
-                    probable_gene_name: correct_gene_name,
-                })?;
+            let submitted_gene_name = maybe_submitted_gene_name.ok_or(ErrorInner::NoGeneName {
+                ensembl_id,
+                probable_gene_name: correct_gene_name,
+            })?;
 
             if *submitted_gene_name != correct_gene_name {
                 return Err(ErrorInner::EnsemblIdGeneNameMismatch {
@@ -190,14 +189,10 @@ fn validate_ensembl_id_gene_name_pair(
             Ok((ensembl_id, correct_gene_name))
         }
 
-        (None, Some(gene_name)) => {
-            return Err(ErrorInner::NoEnsemblId {
-                gene_name: gene_name.to_owned(),
-            });
-        }
-        (None, None) => {
-            return Err(ErrorInner::MissingGene);
-        }
+        (None, Some(gene_name)) => Err(ErrorInner::NoEnsemblId {
+            gene_name: gene_name.to_owned(),
+        }),
+        (None, None) => Err(ErrorInner::MissingGene),
     }
 }
 
