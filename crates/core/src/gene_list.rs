@@ -10,7 +10,7 @@ pub mod chemistry;
 pub fn parse_target_list(
     target_list: &str,
     field_aliases: &HashMap<String, String>,
-    allowed_genes: &phf::Map<EnsemblId, GeneName>,
+    allowed_genes: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)> + Copy,
 ) -> csv::Result<ParsedTargetList> {
     let target_list = target_list.trim();
     let mut reader = csv::Reader::from_reader(target_list.as_bytes());
@@ -19,9 +19,9 @@ pub fn parse_target_list(
     // prevent us from continuing the parsing
     let (fieldnames, error) = rename_fields(reader.headers()?.to_owned(), field_aliases);
     let fieldnames = Some(&fieldnames);
+    let mut errors = vec![error];
 
     let mut valid_targets = Vec::with_capacity(500);
-    let mut errors = vec![error];
 
     for (line_number, record) in reader
         .into_records()
@@ -78,7 +78,7 @@ fn rename_fields(
 fn parse_target_from_record(
     mut record: StringRecord,
     fieldnames: Option<&StringRecord>,
-    allowed_genes: &phf::Map<EnsemblId, GeneName>,
+    allowed_genes: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
 ) -> Result<ValidTarget, Vec<ErrorInner>> {
     // Trim the individual fields of the record
     record.trim();
@@ -96,7 +96,7 @@ fn validate_target(
         is_backup,
         must_have,
     }: UnvalidatedTarget,
-    allowed_genes: &phf::Map<EnsemblId, GeneName>,
+    allowed_genes: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
 ) -> Result<ValidTarget, Vec<ErrorInner>> {
     // The number of possible errors in a row is 6 (the same as the number of
     // variants of ErrorInner)
@@ -147,7 +147,7 @@ fn validate_target(
 
 fn validate_ensembl_id_gene_name_pair(
     unvalidated_gene: &UnvalidatedGene,
-    allowed_genes: &phf::Map<EnsemblId, GeneName>,
+    allowed_genes: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
 ) -> Result<(EnsemblId, GeneName), ErrorInner> {
     let UnvalidatedGene {
         ensembl_id,
@@ -158,10 +158,8 @@ fn validate_ensembl_id_gene_name_pair(
 
     match (ensembl_id, gene_name.as_ref()) {
         (Some(ensembl_id), maybe_submitted_gene_name) => {
-            let (ensembl_id, correct_gene_name) = allowed_genes
-                .get_entry(&ensembl_id)
-                .map(|(eid, gn)| (*eid, *gn))
-                .ok_or_else(|| unvalidated_gene.to_owned())?;
+            let (ensembl_id, correct_gene_name) =
+                allowed_genes(&ensembl_id).ok_or_else(|| unvalidated_gene.to_owned())?;
 
             let submitted_gene_name = maybe_submitted_gene_name.ok_or(ErrorInner::NoGeneName {
                 ensembl_id,
@@ -211,7 +209,7 @@ struct ValidTarget {
     must_have: bool,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 struct UnvalidatedTarget {
     #[serde(flatten)]
     gene: UnvalidatedGene,
@@ -233,6 +231,7 @@ struct Error {
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
+#[serde(rename_all = "snake_case", tag = "type")]
 enum ErrorInner {
     MissingGene,
     MissingField(&'static str),
@@ -261,5 +260,111 @@ enum ErrorInner {
 impl From<UnvalidatedGene> for ErrorInner {
     fn from(err: UnvalidatedGene) -> Self {
         Self::InvalidGene(err)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::gene_list::{
+        Error, ErrorInner, UnvalidatedGene, UnvalidatedTarget,
+        chemistry::{
+            UnvalidatedEnsemblId, UnvalidatedGeneName, xenium_v1_human_ensembl_id_to_gene_name,
+        },
+        rename_fields, validate_ensembl_id_gene_name_pair,
+    };
+
+    #[test]
+    fn renaming_fields() {
+        let original_fieldnames = ["field1", "field2"].iter().collect();
+        let field_aliases = [("field1", "field_1")]
+            .map(|(k, v)| (k.to_owned(), v.to_owned()))
+            .into_iter()
+            .collect();
+
+        let (renamed_fields, error) = rename_fields(original_fieldnames, &field_aliases);
+
+        assert_eq!(
+            renamed_fields,
+            ["field_1", "field2"][..],
+            "failed to rename fields"
+        );
+
+        assert_eq!(
+            error,
+            Error {
+                line_number: None,
+                errors: vec![ErrorInner::RenamedField {
+                    original_fieldname: "field1".to_owned(),
+                    correct_fieldname: "field_1".to_owned()
+                }]
+            },
+            "failed to construct field-renaming error"
+        );
+    }
+
+    #[test]
+    fn unvalidated_target_deserializes_with_invalid_fields() {
+        let data = b"field1,field2,ensembl_id\nvalue1,value2,id";
+        let mut reader = csv::Reader::from_reader(&data[..]);
+
+        let deserialized: Vec<UnvalidatedTarget> =
+            reader.deserialize().collect::<Result<_, _>>().unwrap();
+
+        assert_eq!(
+            deserialized,
+            vec![UnvalidatedTarget {
+                gene: UnvalidatedGene {
+                    ensembl_id: Some(UnvalidatedEnsemblId("id".to_owned())),
+                    gene_name: None
+                },
+                group: None,
+                is_backup: None,
+                must_have: None
+            }]
+        )
+    }
+
+    fn tp53_ensembl_id() -> UnvalidatedEnsemblId {
+        UnvalidatedEnsemblId("ENSG00000141510".to_owned())
+    }
+
+    #[test]
+    fn valid_gene() {
+        validate_ensembl_id_gene_name_pair(
+            &UnvalidatedGene {
+                ensembl_id: Some(tp53_ensembl_id()),
+                gene_name: Some(UnvalidatedGeneName("TP53".to_owned())),
+            },
+            xenium_v1_human_ensembl_id_to_gene_name,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn ensembl_id_gene_name_mismatch() {
+        let ensembl_id = tp53_ensembl_id();
+        let gene_name = UnvalidatedGeneName(String::new());
+
+        let err = validate_ensembl_id_gene_name_pair(
+            &UnvalidatedGene {
+                ensembl_id: Some(ensembl_id.clone()),
+                gene_name: Some(gene_name.clone()),
+            },
+            xenium_v1_human_ensembl_id_to_gene_name,
+        )
+        .unwrap_err();
+
+        let (correct_ensembl_id, correct_gene_name) =
+            xenium_v1_human_ensembl_id_to_gene_name(&ensembl_id).unwrap();
+
+        assert_eq!(
+            err,
+            ErrorInner::EnsemblIdGeneNameMismatch {
+                ensembl_id: correct_ensembl_id,
+                submitted_gene_name: gene_name,
+                correct_gene_name,
+            },
+            "failed to create Ensembl ID-gene name mismatch error"
+        );
     }
 }

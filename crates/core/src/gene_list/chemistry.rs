@@ -20,7 +20,7 @@ impl PhfHash for EnsemblId {
 pub struct GeneName(&'static str);
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct UnvalidatedEnsemblId(String);
+pub struct UnvalidatedEnsemblId(pub String);
 
 impl UnvalidatedEnsemblId {
     #[must_use]
@@ -47,7 +47,7 @@ impl PhfEq<UnvalidatedEnsemblId> for EnsemblId {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct UnvalidatedGeneName(String);
+pub struct UnvalidatedGeneName(pub String);
 
 impl PartialEq<GeneName> for UnvalidatedGeneName {
     fn eq(&self, other: &GeneName) -> bool {
