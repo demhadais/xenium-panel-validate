@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
+use chemistry::{EnsemblId, GeneName, UnvalidatedEnsemblId, UnvalidatedGeneName};
 use csv::StringRecord;
-use gene::{EnsemblId, GeneName, UnvalidatedEnsemblId, UnvalidatedGeneName};
 use serde::{Deserialize, Serialize};
 
 pub mod chemistry;

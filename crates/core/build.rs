@@ -46,16 +46,16 @@ async fn main() -> anyhow::Result<()> {
         mouse_prime_unavailable,
     ] = unavailable_gene_sets.as_array().unwrap();
 
-    let human_v1_map = make_enums(&annotations, human_v1_unavailable);
+    let human_v1_map = construct_map(&annotations, human_v1_unavailable);
     write_map_to_file(
-        &PathBuf::from("src/gene_list/gene/xenium_v1_human.rs"),
+        &PathBuf::from("src/gene_list/chemistry/xenium_v1_human.rs"),
         "XENIUM_V1_HUMAN_ENSEMBL_IDS",
         human_v1_map,
     )?;
 
-    let human_prime_map = make_enums(&annotations, human_prime_unavailable);
+    let human_prime_map = construct_map(&annotations, human_prime_unavailable);
     write_map_to_file(
-        &PathBuf::from("src/gene_list/gene/xenium_prime_human.rs"),
+        &PathBuf::from("src/gene_list/chemistry/xenium_prime_human.rs"),
         "XENIUM_PRIME_HUMAN_ENSEMBL_IDS",
         human_prime_map,
     )?;
@@ -63,16 +63,16 @@ async fn main() -> anyhow::Result<()> {
     annotations.clear();
     read_gene_annotations_into(&mouse.gene_annotations_path, &mut annotations)?;
 
-    let mouse_v1_map = make_enums(&annotations, mouse_v1_unavailable);
+    let mouse_v1_map = construct_map(&annotations, mouse_v1_unavailable);
     write_map_to_file(
-        &PathBuf::from("src/gene_list/gene/xenium_v1_mouse.rs"),
+        &PathBuf::from("src/gene_list/chemistry/xenium_v1_mouse.rs"),
         "XENIUM_V1_MOUSE_ENSEMBL_IDS",
         mouse_v1_map,
     )?;
 
-    let mouse_prime_enums = make_enums(&annotations, mouse_prime_unavailable);
+    let mouse_prime_enums = construct_map(&annotations, mouse_prime_unavailable);
     write_map_to_file(
-        &PathBuf::from("src/gene_list/gene/xenium_prime_mouse.rs"),
+        &PathBuf::from("src/gene_list/chemistry/xenium_prime_mouse.rs"),
         "XENIUM_PRIME_MOUSE_ENSEMBL_IDS",
         mouse_prime_enums,
     )?;
@@ -115,7 +115,7 @@ fn read_gene_annotations_into(
     Ok(())
 }
 
-fn make_enums<'a>(
+fn construct_map<'a>(
     genes: &'a HashSet<(String, String)>,
     unavailable_gene_ids: &HashSet<String>,
 ) -> phf_codegen::Map<'a, &'a str> {
@@ -126,10 +126,7 @@ fn make_enums<'a>(
             continue;
         }
 
-        map.entry(
-            ensembl_id.as_ref(),
-            format!(r#"super::GeneName("{gene_name}")"#),
-        );
+        map.entry(ensembl_id.as_ref(), format!(r#""{gene_name}""#));
     }
 
     map
@@ -140,12 +137,13 @@ fn write_map_to_file(
     map_name: &str,
     map: phf_codegen::Map<'_, &str>,
 ) -> anyhow::Result<()> {
-    let file = File::create(path)?;
+    let file = File::create(path)
+        .with_context(|| format!("failed to write file {}", path.to_str().unwrap()))?;
     let mut file_writer = BufWriter::new(file);
 
     writeln!(
         file_writer,
-        "pub static {map_name}: phf::Map<&'static str, super::GeneName> = {};",
+        "pub static {map_name}: phf::Map<&'static str, &'static str> = {};",
         map.build()
     )?;
 
@@ -175,7 +173,7 @@ async fn fetch_unavailable_ensembl_ids(
     Ok(gene_ids)
 }
 
-fn parse_ensembl_id_and_name_from_gtf_record(record: &RecordBuf) -> Option<(&str, &str)> {
+fn parse_ensembl_id_and_name_from_gtf_record(record: &RecordBuf) -> Option<(String, String)> {
     if record.ty() != "gene" {
         return None;
     }
@@ -195,10 +193,11 @@ fn parse_ensembl_id_and_name_from_gtf_record(record: &RecordBuf) -> Option<(&str
     Some((
         gene_id
             .to_str()
-            .expect("Ensembl ID should be UTF8")
+            .unwrap()
             .split('.')
             .next()
+            .map(str::to_owned)
             .unwrap(),
-        gene_name.to_str().expect("Gene name should be UTF8"),
+        gene_name.to_str().map(str::to_owned).unwrap(),
     ))
 }
