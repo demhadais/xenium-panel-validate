@@ -83,25 +83,15 @@ fn parse_target_from_record(
     // Trim the individual fields of the record
     record.trim();
 
-    let Ok(unvalidated_target) = record.deserialize(fieldnames) else {
-        // Since every field is an optional string besides the Ensembl ID and gene name,
-        // we know that the above deserialization could only fail due to an invalid
-        // Ensembl ID or gene name. As such, we report to the user what the invalid
-        // values were by deserializing as plain strings
-        return Err(vec![ErrorInner::InvalidGene(
-            // Unwrapping is fine because extra fields won't cause a failure, nor will missing
-            // fields
-            record.deserialize(fieldnames).unwrap(),
-        )]);
-    };
+    // Unwrapping is fine because extra fields won't cause a failure, nor will missing fields
+    let unvalidated_target = record.deserialize(fieldnames).unwrap();
 
     validate_target(unvalidated_target, allowed_genes)
 }
 
 fn validate_target(
     UnvalidatedTarget {
-        ensembl_id,
-        gene_name,
+        gene,
         group,
         is_backup,
         must_have,
@@ -117,8 +107,7 @@ fn validate_target(
     let mut valid_is_backup = None;
     let mut valid_must_have = None;
 
-    match validate_ensembl_id_gene_name_pair(ensembl_id.as_ref(), gene_name.as_ref(), allowed_genes)
-    {
+    match validate_ensembl_id_gene_name_pair(&gene, allowed_genes) {
         Ok((ensembl_id, gene_name)) => {
             valid_ensembl_id = Some(ensembl_id);
             valid_gene_name = Some(gene_name);
@@ -157,21 +146,22 @@ fn validate_target(
 }
 
 fn validate_ensembl_id_gene_name_pair(
-    ensembl_id: Option<&UnvalidatedEnsemblId>,
-    gene_name: Option<&UnvalidatedGeneName>,
+    unvalidated_gene: &UnvalidatedGene,
     allowed_genes: &phf::Map<EnsemblId, GeneName>,
 ) -> Result<(EnsemblId, GeneName), ErrorInner> {
-    let ensembl_id = ensembl_id.map(UnvalidatedEnsemblId::to_uppercase);
+    let UnvalidatedGene {
+        ensembl_id,
+        gene_name,
+    } = unvalidated_gene;
 
-    match (ensembl_id, gene_name) {
+    let ensembl_id = ensembl_id.as_ref().map(UnvalidatedEnsemblId::to_uppercase);
+
+    match (ensembl_id, gene_name.as_ref()) {
         (Some(ensembl_id), maybe_submitted_gene_name) => {
             let (ensembl_id, correct_gene_name) = allowed_genes
                 .get_entry(&ensembl_id)
                 .map(|(eid, gn)| (*eid, *gn))
-                .ok_or_else(|| InvalidGeneError {
-                    ensembl_id: Some(ensembl_id),
-                    gene_name: maybe_submitted_gene_name.cloned(),
-                })?;
+                .ok_or_else(|| unvalidated_gene.to_owned())?;
 
             let submitted_gene_name = maybe_submitted_gene_name.ok_or(ErrorInner::NoGeneName {
                 ensembl_id,
@@ -223,11 +213,17 @@ struct ValidTarget {
 
 #[derive(Clone, Debug, Deserialize)]
 struct UnvalidatedTarget {
-    ensembl_id: Option<UnvalidatedEnsemblId>,
-    gene_name: Option<UnvalidatedGeneName>,
+    #[serde(flatten)]
+    gene: UnvalidatedGene,
     group: Option<String>,
     is_backup: Option<String>,
     must_have: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+struct UnvalidatedGene {
+    ensembl_id: Option<UnvalidatedEnsemblId>,
+    gene_name: Option<UnvalidatedGeneName>,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
@@ -259,18 +255,11 @@ enum ErrorInner {
         submitted_gene_name: UnvalidatedGeneName,
         correct_gene_name: GeneName,
     },
-    // TODO: Unknown or Unrecognized?
-    InvalidGene(InvalidGeneError),
+    InvalidGene(UnvalidatedGene),
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-struct InvalidGeneError {
-    ensembl_id: Option<UnvalidatedEnsemblId>,
-    gene_name: Option<UnvalidatedGeneName>,
-}
-
-impl From<InvalidGeneError> for ErrorInner {
-    fn from(err: InvalidGeneError) -> Self {
+impl From<UnvalidatedGene> for ErrorInner {
+    fn from(err: UnvalidatedGene) -> Self {
         Self::InvalidGene(err)
     }
 }
