@@ -1,19 +1,15 @@
 use std::{
     collections::HashSet,
     fs::File,
-    io::BufReader,
+    io::{BufReader, BufWriter, Write},
     path::{Path, PathBuf},
     str::FromStr,
 };
 
 use anyhow::Context;
 use bstr::{BString, ByteSlice};
-use heck::ToPascalCase;
 use noodles::gff::feature::{RecordBuf, record_buf::attributes::field::Value};
-use proc_macro2::Span;
-use quote::quote;
 use serde::Deserialize;
-use syn::{Ident, LitStr};
 use url::Url;
 
 const N_GENES: usize = 24_000;
@@ -52,24 +48,34 @@ async fn main() -> anyhow::Result<()> {
         mouse_prime_unavailable,
     ] = unavailable_gene_sets.as_array().unwrap();
 
-    let human_v1_enums = make_enums("XeniumV1Human", &annotations, human_v1_unavailable);
-    std::fs::write("src/gene_list/gene/xenium_v1_human.rs", human_v1_enums)?;
+    let human_v1_map = make_enums(&annotations, human_v1_unavailable);
+    write_map_to_file(
+        &PathBuf::from("src/gene_list/gene/xenium_v1_human.rs"),
+        "XENIUM_V1_HUMAN_ENSEMBL_IDS",
+        human_v1_map,
+    )?;
 
-    let human_prime_enums = make_enums("XeniumPrimeHuman", &annotations, human_prime_unavailable);
-    std::fs::write(
-        "src/gene_list/gene/xenium_prime_human.rs",
-        human_prime_enums,
+    let human_prime_map = make_enums(&annotations, human_prime_unavailable);
+    write_map_to_file(
+        &PathBuf::from("src/gene_list/gene/xenium_prime_human.rs"),
+        "XENIUM_PRIME_HUMAN_ENSEMBL_IDS",
+        human_prime_map,
     )?;
 
     annotations.clear();
     read_gene_annotations_into(&mouse.gene_annotations_path, &mut annotations)?;
 
-    let mouse_v1_enums = make_enums("XeniumV1Mouse", &annotations, mouse_v1_unavailable);
-    std::fs::write("src/gene_list/gene/xenium_v1_mouse.rs", mouse_v1_enums)?;
+    let mouse_v1_map = make_enums(&annotations, mouse_v1_unavailable);
+    write_map_to_file(
+        &PathBuf::from("src/gene_list/gene/xenium_v1_mouse.rs"),
+        "XENIUM_V1_MOUSE_ENSEMBL_IDS",
+        mouse_v1_map,
+    )?;
 
-    let mouse_prime_enums = make_enums("XeniumPrimeMouse", &annotations, mouse_prime_unavailable);
-    std::fs::write(
-        "src/gene_list/gene/xenium_prime_mouse.rs",
+    let mouse_prime_enums = make_enums(&annotations, mouse_prime_unavailable);
+    write_map_to_file(
+        &PathBuf::from("src/gene_list/gene/xenium_prime_mouse.rs"),
+        "XENIUM_PRIME_MOUSE_ENSEMBL_IDS",
         mouse_prime_enums,
     )?;
 
@@ -111,47 +117,38 @@ fn read_gene_annotations_into(
     Ok(())
 }
 
-fn make_enums(
-    enum_prefix: &str,
-    genes: &HashSet<(String, String)>,
+fn make_enums<'a>(
+    genes: &'a HashSet<(String, String)>,
     unavailable_gene_ids: &HashSet<String>,
-) -> String {
-    let mut ensembl_id_enum_variants = Vec::with_capacity(N_GENES);
-    let mut ensembl_id_to_gene_name_match_arms = Vec::with_capacity(N_GENES);
-
-    let ensembl_id_enum_name = Ident::new(&format!("{enum_prefix}EnsemblId"), Span::call_site());
+) -> phf_codegen::Map<'a, &'a str> {
+    let mut map = phf_codegen::Map::new();
 
     for (ensembl_id, gene_name) in genes {
         if unavailable_gene_ids.contains(ensembl_id) {
             continue;
         }
 
-        let ensembl_id_variant = Ident::new(&ensembl_id.to_pascal_case(), Span::call_site());
-
-        let gene_name = LitStr::new(gene_name, Span::call_site());
-
-        ensembl_id_to_gene_name_match_arms.push(quote! { Self::#ensembl_id_variant => #gene_name });
-        ensembl_id_enum_variants.push(ensembl_id_variant);
+        map.entry(ensembl_id.as_ref(), format!(r#""{gene_name}""#));
     }
 
-    quote! {
-        #[derive(Debug, Clone, Copy, ::serde::Deserialize, ::serde::Serialize, PartialEq)]
-        #[serde(rename_all = "lowercase")]
-        pub enum #ensembl_id_enum_name {
-            #(#ensembl_id_enum_variants),*
-        }
+    map
+}
 
-        impl super::MapToGeneName for #ensembl_id_enum_name {
-            #[allow(clippy::match_same_arms, clippy::too_many_lines)]
-            fn gene_name(self) -> &'static str {
-                match self {
-                    #(#ensembl_id_to_gene_name_match_arms),*
-                }
-            }
-        }
+fn write_map_to_file(
+    path: &Path,
+    map_name: &str,
+    map: phf_codegen::Map<'_, &str>,
+) -> anyhow::Result<()> {
+    let file = File::create(path)?;
+    let mut file_writer = BufWriter::new(file);
 
-    }
-    .to_string()
+    writeln!(
+        file_writer,
+        "pub static {map_name}: phf::Map<&'static str, &'static str> = {};",
+        map.build()
+    )?;
+
+    Ok(())
 }
 
 async fn fetch_unavailable_ensembl_ids(
