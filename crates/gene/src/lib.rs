@@ -17,10 +17,12 @@ pub struct GeneName(&'static str);
 pub struct UnvalidatedEnsemblId(String);
 
 impl UnvalidatedEnsemblId {
+    #[must_use]
     pub fn to_uppercase(&self) -> Self {
         Self(self.0.to_uppercase())
     }
 
+    #[must_use]
     pub fn get(&self) -> &str {
         &self.0
     }
