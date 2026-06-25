@@ -128,7 +128,10 @@ fn make_enums<'a>(
             continue;
         }
 
-        map.entry(ensembl_id.as_ref(), format!(r#""{gene_name}""#));
+        map.entry(
+            ensembl_id.as_ref(),
+            format!(r#"super::GeneName("{gene_name}")"#),
+        );
     }
 
     map
@@ -144,7 +147,7 @@ fn write_map_to_file(
 
     writeln!(
         file_writer,
-        "pub static {map_name}: phf::Map<&'static str, &'static str> = {};",
+        "pub static {map_name}: phf::Map<&'static str, super::GeneName> = {};",
         map.build()
     )?;
 
