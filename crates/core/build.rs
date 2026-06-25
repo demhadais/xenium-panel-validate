@@ -24,8 +24,6 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    println!("cargo::rerun-if-changed=genes.toml");
-
     let Config { human, mouse } = toml::from_slice(include_bytes!("genes.toml"))
         .context("failed to parse config from genes.toml")?;
 

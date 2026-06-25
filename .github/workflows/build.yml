@@ -1,0 +1,37 @@
+name: Build
+on: workflow_dispatch
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download gene annotations
+        run: >
+          curl
+          --parallel
+          --remote-name
+          http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_32/gencode.v32.primary_assembly.annotation.gtf.gz
+          --remote-name
+          http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M23/gencode.vM23.primary_assembly.annotation.gtf.gz
+
+      - name: Unzip gene annotations
+        run: gzip --decompress *.gz
+
+      - name: Check out repository code
+        uses: actions/checkout@v7
+
+      - name: Cache cargo files
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+          cache-workspace-crates: true
+          cache-on-failure: true
+
+      - name: Build crates
+        env:
+          BUILD_XENIUM_PANEL_VALIDATE: "true"
+        run: cargo build
+
+      - name: Compare committed crates to regenerated crates
+        run: git diff --exit-code
