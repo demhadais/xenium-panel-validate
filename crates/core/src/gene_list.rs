@@ -83,7 +83,8 @@ fn parse_target_from_record(
     // Trim the individual fields of the record
     record.trim();
 
-    // Unwrapping is fine because extra fields won't cause a failure, nor will missing fields
+    // Unwrapping is fine because extra fields won't cause a failure, nor will
+    // missing fields
     let unvalidated_target = record.deserialize(fieldnames).unwrap();
 
     validate_target(unvalidated_target, allowed_genes)
