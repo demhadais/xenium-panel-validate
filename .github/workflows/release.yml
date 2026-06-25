@@ -1,4 +1,4 @@
-name: Build
+name: Release
 on: workflow_dispatch
 
 jobs:
@@ -31,7 +31,7 @@ jobs:
       - name: Build crates
         env:
           BUILD_XENIUM_PANEL_VALIDATE: "true"
-        run: cargo build
+        run: cargo build --package xenium-panel-validate-cli --release
 
-      - name: Compare committed crates to regenerated crates
+      - name: Compare committed code to regenerated code
         run: git diff --exit-code
