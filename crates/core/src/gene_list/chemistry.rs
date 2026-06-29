@@ -55,12 +55,6 @@ impl PartialEq<GeneName> for UnvalidatedGeneName {
     }
 }
 
-impl PartialEq<UnvalidatedEnsemblId> for GeneName {
-    fn eq(&self, other: &UnvalidatedEnsemblId) -> bool {
-        self.0 == other.0
-    }
-}
-
 #[must_use]
 pub fn xenium_v1_human_ensembl_id_to_gene_name(
     ensembl_id: &UnvalidatedEnsemblId,
