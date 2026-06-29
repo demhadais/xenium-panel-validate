@@ -46,7 +46,7 @@ impl UnvalidatedEnsemblId {
             && self
                 .0
                 .chars()
-                .filter(|c| c.is_alphanumeric())
+                .filter(|c| c.is_alphabetic())
                 .all(char::is_uppercase)
     }
 
