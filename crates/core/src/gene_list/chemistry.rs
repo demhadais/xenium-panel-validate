@@ -10,6 +10,12 @@ mod xenium_v1_mouse;
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EnsemblId(&'static str);
 
+impl EnsemblId {
+    pub fn as_str(&self) -> &'static str {
+        self.0
+    }
+}
+
 impl PhfHash for EnsemblId {
     fn phf_hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.phf_hash(state);
@@ -18,6 +24,12 @@ impl PhfHash for EnsemblId {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneName(&'static str);
+
+impl GeneName {
+    pub fn as_str(&self) -> &'static str {
+        self.0
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UnvalidatedEnsemblId(pub String);
@@ -29,7 +41,7 @@ impl UnvalidatedEnsemblId {
     }
 
     #[must_use]
-    pub fn get(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         &self.0
     }
 }
@@ -48,6 +60,12 @@ impl PhfEq<UnvalidatedEnsemblId> for EnsemblId {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UnvalidatedGeneName(pub String);
+
+impl UnvalidatedGeneName {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
 
 impl PartialEq<GeneName> for UnvalidatedGeneName {
     fn eq(&self, other: &GeneName) -> bool {
