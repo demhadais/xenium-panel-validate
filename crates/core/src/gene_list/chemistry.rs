@@ -36,8 +36,18 @@ pub struct UnvalidatedEnsemblId(pub String);
 
 impl UnvalidatedEnsemblId {
     #[must_use]
-    pub fn to_uppercase(&self) -> Self {
-        Self(self.0.to_uppercase())
+    pub fn to_versionless_uppercased(&self) -> Self {
+        Self(self.0.split('.').next().unwrap().to_uppercase())
+    }
+
+    #[must_use]
+    pub fn is_versionless_and_uppercase(&self) -> bool {
+        !self.0.contains('.')
+            && self
+                .0
+                .chars()
+                .filter(|c| c.is_alphanumeric())
+                .all(char::is_uppercase)
     }
 
     #[must_use]
@@ -118,9 +128,10 @@ fn ensembl_id_to_gene_name(
 #[cfg(test)]
 mod tests {
     use crate::gene_list::chemistry::{
-        xenium_prime_human::XENIUM_PRIME_HUMAN_ENSEMBL_IDS,
+        GeneName, UnvalidatedEnsemblId, xenium_prime_human::XENIUM_PRIME_HUMAN_ENSEMBL_IDS,
         xenium_prime_mouse::XENIUM_PRIME_MOUSE_ENSEMBL_IDS,
-        xenium_v1_human::XENIUM_V1_HUMAN_ENSEMBL_IDS, xenium_v1_mouse::XENIUM_V1_MOUSE_ENSEMBL_IDS,
+        xenium_v1_human::XENIUM_V1_HUMAN_ENSEMBL_IDS, xenium_v1_human_ensembl_id_to_gene_name,
+        xenium_v1_mouse::XENIUM_V1_MOUSE_ENSEMBL_IDS,
     };
 
     #[test]
@@ -135,5 +146,16 @@ mod tests {
         for (ensembl_id, map) in unavailable_genes {
             std::assert_matches!(map.get(ensembl_id), None);
         }
+    }
+
+    #[test]
+    fn canonicalized_ensembl_id_gets_correct_gene_name() {
+        let ensembl_id =
+            UnvalidatedEnsemblId("eNSG00000141510.1".to_string()).to_versionless_uppercased();
+
+        std::assert_matches!(
+            xenium_v1_human_ensembl_id_to_gene_name(&ensembl_id).unwrap(),
+            (_, GeneName("TP53"))
+        );
     }
 }
