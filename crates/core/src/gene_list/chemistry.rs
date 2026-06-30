@@ -130,13 +130,17 @@ fn ensembl_id_to_gene_name(
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use crate::gene_list::chemistry::{
         GeneName, UnvalidatedEnsemblId, xenium_prime_human::XENIUM_PRIME_HUMAN_ENSEMBL_IDS,
         xenium_prime_mouse::XENIUM_PRIME_MOUSE_ENSEMBL_IDS,
         xenium_v1_human::XENIUM_V1_HUMAN_ENSEMBL_IDS, xenium_v1_human_ensembl_id_to_gene_name,
         xenium_v1_mouse::XENIUM_V1_MOUSE_ENSEMBL_IDS,
     };
+
+    pub fn tp53_ensembl_id() -> UnvalidatedEnsemblId {
+        UnvalidatedEnsemblId("ENSG00000141510".to_owned())
+    }
 
     #[test]
     fn unavailable_genes_are_not_in_map() {
@@ -153,9 +157,17 @@ mod tests {
     }
 
     #[test]
+    fn correct_detection_of_versionless_uppercase_ensembl_id() {
+        let ensembl_id = tp53_ensembl_id();
+        assert!(ensembl_id.is_versionless_and_uppercase());
+
+        let ensembl_id = UnvalidatedEnsemblId(format!("{}.1", ensembl_id.0.to_lowercase()));
+        assert!(!ensembl_id.is_versionless_and_uppercase());
+    }
+
+    #[test]
     fn canonicalized_ensembl_id_gets_correct_gene_name() {
-        let ensembl_id =
-            UnvalidatedEnsemblId("eNSG00000141510.1".to_string()).to_versionless_uppercase();
+        let ensembl_id = tp53_ensembl_id().to_versionless_uppercase();
 
         std::assert_matches!(
             xenium_v1_human_ensembl_id_to_gene_name(&ensembl_id).unwrap(),

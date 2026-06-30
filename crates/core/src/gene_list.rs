@@ -278,7 +278,8 @@ mod tests {
     use crate::gene_list::{
         Error, ErrorInner, UnvalidatedGene, UnvalidatedTarget,
         chemistry::{
-            UnvalidatedEnsemblId, UnvalidatedGeneName, xenium_v1_human_ensembl_id_to_gene_name,
+            UnvalidatedEnsemblId, UnvalidatedGeneName, tests::tp53_ensembl_id,
+            xenium_v1_human_ensembl_id_to_gene_name,
         },
         rename_fields, validate_ensembl_id_gene_name_pair,
     };
@@ -333,10 +334,6 @@ mod tests {
                 must_have: None
             }]
         )
-    }
-
-    fn tp53_ensembl_id() -> UnvalidatedEnsemblId {
-        UnvalidatedEnsemblId("ENSG00000141510".to_owned())
     }
 
     #[test]
