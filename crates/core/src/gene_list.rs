@@ -10,7 +10,7 @@ pub mod chemistry;
 pub fn parse_target_list(
     target_list: &str,
     field_aliases: &HashMap<String, String>,
-    allowed_genes: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)> + Copy,
+    ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)> + Copy,
 ) -> csv::Result<ParsedTargetList> {
     let target_list = target_list.trim();
     let mut reader = csv::Reader::from_reader(target_list.as_bytes());
@@ -28,18 +28,13 @@ pub fn parse_target_list(
         .enumerate()
         .map(|(ln, r)| (Some(ln), r))
     {
-        let (maybe_valid_target, err) =
-            parse_target_from_record(record?, fieldnames, allowed_genes);
-
-        if let Some(valid_target) = maybe_valid_target {
-            valid_targets.push(valid_target);
-        }
-
-        if let Some(err) = err {
-            errors.push(Error {
+        match parse_target_from_record(record?, fieldnames, ensembl_id_to_gene) {
+            Ok(vt) => valid_targets.push(vt),
+            Err((ut, errs)) => errors.push(Error {
                 line_number,
-                errors: err,
-            })
+                submitted_target: Some(ut),
+                errors: errs,
+            }),
         }
     }
 
@@ -76,6 +71,7 @@ fn rename_fields(
         renamed_fields,
         Error {
             line_number: None,
+            submitted_target: None,
             errors,
         },
     )
@@ -84,8 +80,8 @@ fn rename_fields(
 fn parse_target_from_record(
     mut record: StringRecord,
     fieldnames: Option<&StringRecord>,
-    allowed_genes: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
-) -> (Option<ValidTarget>, Option<Vec<ErrorInner>>) {
+    ensembl_id_to_gene_name: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
+) -> Result<ValidTarget, (UnvalidatedTarget, Vec<ErrorInner>)> {
     // Trim the individual fields of the record
     record.trim();
 
@@ -93,7 +89,8 @@ fn parse_target_from_record(
     // missing fields
     let unvalidated_target = record.deserialize(fieldnames).unwrap();
 
-    validate_target(unvalidated_target, allowed_genes)
+    validate_target(&unvalidated_target, ensembl_id_to_gene_name)
+        .map_err(|err| (unvalidated_target, err))
 }
 
 fn validate_target(
@@ -102,109 +99,94 @@ fn validate_target(
         group,
         is_backup,
         must_have,
-    }: UnvalidatedTarget,
-    allowed_genes: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
-) -> (Option<ValidTarget>, Option<Vec<ErrorInner>>) {
-    let mut valid_is_backup = None;
-    let mut valid_must_have = None;
-
-    let (valid_gene, errors) = validate_ensembl_id_gene_name_pair(&gene, allowed_genes);
-    let mut errors = errors.unwrap_or_default();
+    }: &UnvalidatedTarget,
+    ensembl_id_to_gene_name: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
+) -> Result<ValidTarget, Vec<ErrorInner>> {
+    let mut errors = Vec::with_capacity(4);
 
     if group.is_none() {
         errors.push(ErrorInner::MissingField("group"));
     }
 
-    match parse_bool_from_str(is_backup.as_deref(), "is_backup") {
-        Ok(is_backup) => valid_is_backup = Some(is_backup),
-        Err(err) => errors.push(err),
-    }
-
-    match parse_bool_from_str(must_have.as_deref(), "must_have") {
-        Ok(must_have) => valid_must_have = Some(must_have),
-        Err(err) => errors.push(err),
-    }
-
-    let valid_target = match (valid_gene, valid_is_backup, valid_must_have, group) {
-        (Some(gene), Some(is_backup), Some(must_have), Some(group)) => Some(ValidTarget {
-            gene,
-            is_backup,
-            must_have,
-            group,
-        }),
-        _ => None,
+    let is_backup = match parse_bool_from_str(is_backup.as_deref(), "is_backup") {
+        Ok(is_backup) => Some(is_backup),
+        Err(err) => {
+            errors.push(err);
+            None
+        }
     };
 
-    (valid_target, (!errors.is_empty()).then_some(errors))
+    let must_have = match parse_bool_from_str(must_have.as_deref(), "must_have") {
+        Ok(must_have) => Some(must_have),
+        Err(err) => {
+            errors.push(err);
+            None
+        }
+    };
+
+    let valid_gene = match validate_ensembl_id_gene_name_pair(gene, ensembl_id_to_gene_name) {
+        Ok(vg) => Some(vg),
+        Err(err) => {
+            errors.push(err);
+            None
+        }
+    };
+
+    match (valid_gene, group, is_backup, must_have) {
+        (Some(valid_gene), Some(group), Some(is_backup), Some(must_have)) => Ok(ValidTarget {
+            gene: valid_gene,
+            group: group.to_lowercase(),
+            is_backup,
+            must_have,
+        }),
+        _ => Err(errors),
+    }
 }
 
 fn validate_ensembl_id_gene_name_pair(
     unvalidated_gene: &UnvalidatedGene,
-    allowed_genes: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
-) -> (Option<ValidGene>, Option<Vec<ErrorInner>>) {
+    ensembl_id_to_gene_name: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
+) -> Result<ValidGene, ErrorInner> {
     let UnvalidatedGene {
         ensembl_id,
-        gene_name,
+        gene_name: submitted_gene_name,
     } = unvalidated_gene;
 
-    let mut errors = Vec::with_capacity(8);
-
-    let valid_gene = match (ensembl_id, gene_name.as_ref()) {
-        (Some(ensembl_id), maybe_submitted_gene_name) => {
-            let ensembl_id = if ensembl_id.is_versionless_and_uppercase() {
-                ensembl_id.to_owned()
-            } else {
-                // We want to report to the user that we had to fix their Ensembl ID
-                errors.push(ErrorInner::VersionedOrLowercaseEnsemblId(
-                    ensembl_id.to_owned(),
-                ));
-                ensembl_id.to_versionless_uppercased()
-            };
-
-            let Some(valid_gene) = allowed_genes(&ensembl_id).map(|(eid, gn)| ValidGene {
-                ensembl_id: eid,
-                gene_name: gn,
-            }) else {
-                return (None, Some(vec![unvalidated_gene.to_owned().into()]));
-            };
-
-            match maybe_submitted_gene_name {
-                Some(submitted_gene_name) => {
-                    if *submitted_gene_name != valid_gene.gene_name {
-                        errors.push(ErrorInner::EnsemblIdGeneNameMismatch {
-                            ensembl_id: valid_gene.ensembl_id,
-                            submitted_gene_name: submitted_gene_name.to_owned(),
-                            correct_gene_name: valid_gene.gene_name,
-                        });
-
-                        None
-                    } else {
-                        Some(valid_gene)
-                    }
-                }
-                None => {
-                    errors.push(ErrorInner::NoGeneName {
-                        ensembl_id: valid_gene.ensembl_id,
-                        probable_gene_name: valid_gene.gene_name,
-                    });
-                    None
-                }
-            }
-        }
-
-        (None, Some(gene_name)) => {
-            errors.push(ErrorInner::NoEnsemblId {
-                gene_name: gene_name.to_owned(),
-            });
-            None
-        }
-        (None, None) => {
-            errors.push(ErrorInner::MissingGene);
-            None
-        }
+    let Some(ensembl_id) = ensembl_id else {
+        return Err(ErrorInner::NoEnsemblId);
     };
 
-    (valid_gene, (!errors.is_empty()).then_some(errors))
+    let map_valid_gene = |(ensembl_id, gene_name)| ValidGene {
+        ensembl_id,
+        gene_name,
+    };
+
+    let valid_gene = if ensembl_id.is_versionless_and_uppercase() {
+        ensembl_id_to_gene_name(ensembl_id)
+            .map(map_valid_gene)
+            .ok_or_else(|| unvalidated_gene.to_owned())?
+    } else {
+        let maybe_valid_gene =
+            ensembl_id_to_gene_name(&ensembl_id.to_versionless_uppercased()).map(map_valid_gene);
+
+        return Err(ErrorInner::VersionedOrLowercaseEnsemblId {
+            correct_gene: maybe_valid_gene,
+        });
+    };
+
+    let Some(submitted_gene_name) = submitted_gene_name else {
+        return Err(ErrorInner::NoGeneName {
+            probable_gene_name: valid_gene.gene_name,
+        });
+    };
+
+    if *submitted_gene_name == valid_gene.gene_name {
+        Ok(valid_gene)
+    } else {
+        Err(ErrorInner::EnsemblIdGeneNameMismatch {
+            correct_gene_name: valid_gene.gene_name,
+        })
+    }
 }
 
 fn parse_bool_from_str(s: Option<&str>, fieldname: &'static str) -> Result<bool, ErrorInner> {
@@ -212,9 +194,9 @@ fn parse_bool_from_str(s: Option<&str>, fieldname: &'static str) -> Result<bool,
         return Err(ErrorInner::MissingField(fieldname));
     };
 
-    s.parse().map_err(|_| ErrorInner::ParseBool {
-        value: s.to_owned(),
-    })
+    let s = s.to_lowercase();
+
+    s.parse().map_err(|_| ErrorInner::ParseBool { value: s })
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -232,13 +214,13 @@ struct ValidTarget {
     must_have: bool,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 struct ValidGene {
     ensembl_id: EnsemblId,
     gene_name: GeneName,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 struct UnvalidatedTarget {
     #[serde(flatten)]
     gene: UnvalidatedGene,
@@ -247,7 +229,7 @@ struct UnvalidatedTarget {
     must_have: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 struct UnvalidatedGene {
     ensembl_id: Option<UnvalidatedEnsemblId>,
     gene_name: Option<UnvalidatedGeneName>,
@@ -256,23 +238,22 @@ struct UnvalidatedGene {
 #[derive(Clone, Debug, Serialize, PartialEq)]
 struct Error {
     line_number: Option<usize>,
+    submitted_target: Option<UnvalidatedTarget>,
     errors: Vec<ErrorInner>,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case", tag = "type")]
 enum ErrorInner {
-    MissingGene,
     MissingField(&'static str),
     ParseBool {
         value: String,
     },
-    VersionedOrLowercaseEnsemblId(UnvalidatedEnsemblId),
-    NoEnsemblId {
-        gene_name: UnvalidatedGeneName,
+    VersionedOrLowercaseEnsemblId {
+        correct_gene: Option<ValidGene>,
     },
+    NoEnsemblId,
     NoGeneName {
-        ensembl_id: EnsemblId,
         probable_gene_name: GeneName,
     },
     RenamedField {
@@ -280,8 +261,6 @@ enum ErrorInner {
         correct_fieldname: String,
     },
     EnsemblIdGeneNameMismatch {
-        ensembl_id: EnsemblId,
-        submitted_gene_name: UnvalidatedGeneName,
         correct_gene_name: GeneName,
     },
     InvalidGene(UnvalidatedGene),
@@ -323,6 +302,7 @@ mod tests {
             error,
             Error {
                 line_number: None,
+                submitted_target: None,
                 errors: vec![ErrorInner::RenamedField {
                     original_fieldname: "field1".to_owned(),
                     correct_fieldname: "field_1".to_owned()
@@ -360,16 +340,14 @@ mod tests {
 
     #[test]
     fn valid_gene() {
-        let (gene, errors) = validate_ensembl_id_gene_name_pair(
+        validate_ensembl_id_gene_name_pair(
             &UnvalidatedGene {
                 ensembl_id: Some(tp53_ensembl_id()),
                 gene_name: Some(UnvalidatedGeneName("TP53".to_owned())),
             },
             xenium_v1_human_ensembl_id_to_gene_name,
-        );
-
-        gene.unwrap();
-        assert!(errors.is_none());
+        )
+        .unwrap();
     }
 
     #[test]
@@ -384,19 +362,14 @@ mod tests {
             },
             xenium_v1_human_ensembl_id_to_gene_name,
         )
-        .1
-        .unwrap();
+        .unwrap_err();
 
-        let (correct_ensembl_id, correct_gene_name) =
+        let (_correct_ensembl_id, correct_gene_name) =
             xenium_v1_human_ensembl_id_to_gene_name(&ensembl_id).unwrap();
 
         assert_eq!(
             err,
-            vec![ErrorInner::EnsemblIdGeneNameMismatch {
-                ensembl_id: correct_ensembl_id,
-                submitted_gene_name: gene_name,
-                correct_gene_name,
-            }],
+            ErrorInner::EnsemblIdGeneNameMismatch { correct_gene_name },
             "failed to create Ensembl ID-gene name mismatch error"
         );
     }
