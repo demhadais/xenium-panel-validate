@@ -45,7 +45,7 @@ pub fn parse_target_list(
                         line_number,
                         submitted_target,
                         errors: vec![ErrorInner::DuplicateGene],
-                    })
+                    });
                 }
             }
             Err(errs) => errors.push(Error {
@@ -403,7 +403,8 @@ mod tests {
 
         // Two rows with the same Ensembl ID/gene-name pair but differing other fields
         let gene_list = format!(
-            "ensembl_id,gene_name,group,is_backup,must_have\n{ensembl_id_str},TP53,group0,false,true\n{ensembl_id_str},TP53,group1,true,false"
+            "ensembl_id,gene_name,group,is_backup,must_have\n{ensembl_id_str},TP53,group0,false,\
+             true\n{ensembl_id_str},TP53,group1,true,false"
         );
 
         let ParsedTargetList {
