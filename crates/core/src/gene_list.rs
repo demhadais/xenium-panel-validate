@@ -77,6 +77,7 @@ fn rename_fields(
     )
 }
 
+#[allow(clippy::result_large_err)]
 fn parse_target_from_record(
     mut record: StringRecord,
     fieldnames: Option<&StringRecord>,
@@ -167,7 +168,7 @@ fn validate_ensembl_id_gene_name_pair(
             .ok_or_else(|| unvalidated_gene.to_owned())?
     } else {
         let maybe_valid_gene =
-            ensembl_id_to_gene_name(&ensembl_id.to_versionless_uppercased()).map(map_valid_gene);
+            ensembl_id_to_gene_name(&ensembl_id.to_versionless_uppercase()).map(map_valid_gene);
 
         return Err(ErrorInner::VersionedOrLowercaseEnsemblId {
             correct_gene: maybe_valid_gene,

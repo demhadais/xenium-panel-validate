@@ -11,6 +11,7 @@ mod xenium_v1_mouse;
 pub struct EnsemblId(&'static str);
 
 impl EnsemblId {
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         self.0
     }
@@ -26,6 +27,7 @@ impl PhfHash for EnsemblId {
 pub struct GeneName(&'static str);
 
 impl GeneName {
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         self.0
     }
@@ -35,8 +37,9 @@ impl GeneName {
 pub struct UnvalidatedEnsemblId(pub String);
 
 impl UnvalidatedEnsemblId {
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
-    pub fn to_versionless_uppercased(&self) -> Self {
+    pub fn to_versionless_uppercase(&self) -> Self {
         Self(self.0.split('.').next().unwrap().to_uppercase())
     }
 
@@ -72,6 +75,7 @@ impl PhfEq<UnvalidatedEnsemblId> for EnsemblId {
 pub struct UnvalidatedGeneName(pub String);
 
 impl UnvalidatedGeneName {
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -151,7 +155,7 @@ mod tests {
     #[test]
     fn canonicalized_ensembl_id_gets_correct_gene_name() {
         let ensembl_id =
-            UnvalidatedEnsemblId("eNSG00000141510.1".to_string()).to_versionless_uppercased();
+            UnvalidatedEnsemblId("eNSG00000141510.1".to_string()).to_versionless_uppercase();
 
         std::assert_matches!(
             xenium_v1_human_ensembl_id_to_gene_name(&ensembl_id).unwrap(),
