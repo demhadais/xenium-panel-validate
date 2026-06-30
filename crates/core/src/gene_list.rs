@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chemistry::{EnsemblId, GeneName, UnvalidatedEnsemblId, UnvalidatedGeneName};
 use csv::StringRecord;
@@ -12,6 +12,7 @@ pub fn parse_target_list(
     field_aliases: &HashMap<String, String>,
     ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)> + Copy,
 ) -> csv::Result<ParsedTargetList> {
+    const N_GENES: usize = 500;
     let target_list = target_list.trim();
     let mut reader = csv::Reader::from_reader(target_list.as_bytes());
 
@@ -19,20 +20,37 @@ pub fn parse_target_list(
     // prevent us from continuing the parsing
     let (fieldnames, error) = rename_fields(reader.headers()?.to_owned(), field_aliases);
     let fieldnames = Some(&fieldnames);
-    let mut errors = vec![error];
+    let mut errors = error.map(|e| vec![e]).unwrap_or_default();
 
-    let mut valid_targets = Vec::with_capacity(500);
+    let mut valid_targets = Vec::with_capacity(N_GENES);
+    let mut genes = HashSet::with_capacity(N_GENES);
 
     for (line_number, record) in reader
         .into_records()
         .enumerate()
         .map(|(ln, r)| (Some(ln), r))
     {
-        match parse_target_from_record(record?, fieldnames, ensembl_id_to_gene) {
-            Ok(vt) => valid_targets.push(vt),
-            Err((ut, errs)) => errors.push(Error {
+        let (submitted_target, result) =
+            parse_target_from_record(record?, fieldnames, ensembl_id_to_gene);
+        let submitted_target = Some(submitted_target);
+
+        match result {
+            Ok(vt) => {
+                let is_new = genes.insert(vt.gene);
+
+                if is_new {
+                    valid_targets.push(vt);
+                } else {
+                    errors.push(Error {
+                        line_number,
+                        submitted_target,
+                        errors: vec![ErrorInner::DuplicateGene],
+                    })
+                }
+            }
+            Err(errs) => errors.push(Error {
                 line_number,
-                submitted_target: Some(ut),
+                submitted_target,
                 errors: errs,
             }),
         }
@@ -47,7 +65,7 @@ pub fn parse_target_list(
 fn rename_fields(
     mut original_fieldnames: StringRecord,
     field_aliases: &HashMap<String, String>,
-) -> (StringRecord, Error) {
+) -> (StringRecord, Option<Error>) {
     original_fieldnames.trim();
     let mut renamed_fields = StringRecord::new();
     let mut errors = Vec::new();
@@ -69,11 +87,11 @@ fn rename_fields(
 
     (
         renamed_fields,
-        Error {
+        (!errors.is_empty()).then_some(Error {
             line_number: None,
             submitted_target: None,
             errors,
-        },
+        }),
     )
 }
 
@@ -82,16 +100,16 @@ fn parse_target_from_record(
     mut record: StringRecord,
     fieldnames: Option<&StringRecord>,
     ensembl_id_to_gene_name: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
-) -> Result<ValidTarget, (UnvalidatedTarget, Vec<ErrorInner>)> {
+) -> (UnvalidatedTarget, Result<ValidTarget, Vec<ErrorInner>>) {
     // Trim the individual fields of the record
     record.trim();
 
     // Unwrapping is fine because extra fields won't cause a failure, nor will
     // missing fields
     let unvalidated_target = record.deserialize(fieldnames).unwrap();
+    let validation_result = validate_target(&unvalidated_target, ensembl_id_to_gene_name);
 
-    validate_target(&unvalidated_target, ensembl_id_to_gene_name)
-        .map_err(|err| (unvalidated_target, err))
+    (unvalidated_target, validation_result)
 }
 
 fn validate_target(
@@ -124,6 +142,13 @@ fn validate_target(
             None
         }
     };
+
+    if let (Some(is_backup), Some(must_have)) = (is_backup, must_have)
+        && is_backup
+        && must_have
+    {
+        errors.push(ErrorInner::BackupAndMustHave);
+    }
 
     let valid_gene = match validate_ensembl_id_gene_name_pair(gene, ensembl_id_to_gene_name) {
         Ok(vg) => Some(vg),
@@ -165,7 +190,7 @@ fn validate_ensembl_id_gene_name_pair(
     let valid_gene = if ensembl_id.is_versionless_and_uppercase() {
         ensembl_id_to_gene_name(ensembl_id)
             .map(map_valid_gene)
-            .ok_or_else(|| unvalidated_gene.to_owned())?
+            .ok_or(ErrorInner::InvalidGene)?
     } else {
         let maybe_valid_gene =
             ensembl_id_to_gene_name(&ensembl_id.to_versionless_uppercase()).map(map_valid_gene);
@@ -206,7 +231,7 @@ pub struct ParsedTargetList {
     errors: Vec<Error>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 struct ValidTarget {
     #[serde(flatten)]
     gene: ValidGene,
@@ -215,7 +240,7 @@ struct ValidTarget {
     must_have: bool,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, Hash)]
 struct ValidGene {
     ensembl_id: EnsemblId,
     gene_name: GeneName,
@@ -236,14 +261,14 @@ struct UnvalidatedGene {
     gene_name: Option<UnvalidatedGeneName>,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 struct Error {
     line_number: Option<usize>,
     submitted_target: Option<UnvalidatedTarget>,
     errors: Vec<ErrorInner>,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case", tag = "type")]
 enum ErrorInner {
     MissingField(&'static str),
@@ -264,24 +289,23 @@ enum ErrorInner {
     EnsemblIdGeneNameMismatch {
         correct_gene_name: GeneName,
     },
-    InvalidGene(UnvalidatedGene),
-}
-
-impl From<UnvalidatedGene> for ErrorInner {
-    fn from(err: UnvalidatedGene) -> Self {
-        Self::InvalidGene(err)
-    }
+    BackupAndMustHave,
+    InvalidGene,
+    DuplicateGene,
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::gene_list::{
-        Error, ErrorInner, UnvalidatedGene, UnvalidatedTarget,
+        Error, ErrorInner, ParsedTargetList, UnvalidatedGene, UnvalidatedTarget, ValidGene,
+        ValidTarget,
         chemistry::{
             UnvalidatedEnsemblId, UnvalidatedGeneName, tests::tp53_ensembl_id,
             xenium_v1_human_ensembl_id_to_gene_name,
         },
-        rename_fields, validate_ensembl_id_gene_name_pair,
+        parse_target_list, rename_fields, validate_ensembl_id_gene_name_pair,
     };
 
     #[test]
@@ -302,14 +326,14 @@ mod tests {
 
         assert_eq!(
             error,
-            Error {
+            Some(Error {
                 line_number: None,
                 submitted_target: None,
                 errors: vec![ErrorInner::RenamedField {
                     original_fieldname: "field1".to_owned(),
                     correct_fieldname: "field_1".to_owned()
                 }]
-            },
+            }),
             "failed to construct field-renaming error"
         );
     }
@@ -324,7 +348,7 @@ mod tests {
 
         assert_eq!(
             deserialized,
-            vec![UnvalidatedTarget {
+            [UnvalidatedTarget {
                 gene: UnvalidatedGene {
                     ensembl_id: Some(UnvalidatedEnsemblId("id".to_owned())),
                     gene_name: None
@@ -369,6 +393,50 @@ mod tests {
             err,
             ErrorInner::EnsemblIdGeneNameMismatch { correct_gene_name },
             "failed to create Ensembl ID-gene name mismatch error"
+        );
+    }
+
+    #[test]
+    fn duplicate_targets() {
+        let ensembl_id = tp53_ensembl_id();
+        let ensembl_id_str = ensembl_id.as_str();
+
+        // Two rows with the same Ensembl ID/gene-name pair but differing other fields
+        let gene_list = format!(
+            "ensembl_id,gene_name,group,is_backup,must_have\n{ensembl_id_str},TP53,group0,false,true\n{ensembl_id_str},TP53,group1,true,false"
+        );
+
+        let ParsedTargetList {
+            valid_targets,
+            errors,
+        } = parse_target_list(
+            &gene_list,
+            &HashMap::new(),
+            xenium_v1_human_ensembl_id_to_gene_name,
+        )
+        .unwrap();
+
+        let (correct_eid, correct_gn) =
+            xenium_v1_human_ensembl_id_to_gene_name(&ensembl_id).unwrap();
+
+        assert_eq!(
+            valid_targets,
+            [ValidTarget {
+                gene: ValidGene {
+                    ensembl_id: correct_eid,
+                    gene_name: correct_gn
+                },
+                group: "group0".to_owned(),
+                is_backup: false,
+                must_have: true
+            }]
+        );
+
+        assert_eq!(
+            errors.as_array::<1>().unwrap()[0].errors,
+            [ErrorInner::DuplicateGene],
+            "did not find exactly 1 error: {:?}",
+            errors
         );
     }
 }
