@@ -9,7 +9,7 @@ pub mod chemistry;
 #[allow(clippy::missing_errors_doc)]
 pub fn parse_target_list(
     target_list: &str,
-    field_aliases: &HashMap<String, String>,
+    field_aliases: &HashMap<&str, &str>,
     ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)> + Copy,
 ) -> csv::Result<ParsedTargetList> {
     const N_GENES: usize = 500;
@@ -64,7 +64,7 @@ pub fn parse_target_list(
 
 fn rename_fields(
     mut original_fieldnames: StringRecord,
-    field_aliases: &HashMap<String, String>,
+    field_aliases: &HashMap<&str, &str>,
 ) -> (StringRecord, Option<Error>) {
     original_fieldnames.trim();
     let mut renamed_fields = StringRecord::new();
@@ -72,15 +72,15 @@ fn rename_fields(
 
     for original in &original_fieldnames {
         let renamed = field_aliases
-            .get(&original.to_lowercase())
-            .map_or(original, String::as_str);
+            .get(original.to_lowercase().as_str())
+            .unwrap_or(&original);
 
         renamed_fields.push_field(renamed);
 
-        if renamed != original {
+        if *renamed != original {
             errors.push(ErrorInner::RenamedField {
                 original_fieldname: original.to_owned(),
-                correct_fieldname: renamed.to_owned(),
+                correct_fieldname: (*renamed).to_owned(),
             });
         }
     }
@@ -227,12 +227,12 @@ fn parse_bool_from_str(s: Option<&str>, fieldname: &'static str) -> Result<bool,
 
 #[derive(Clone, Debug, Serialize)]
 pub struct ParsedTargetList {
-    valid_targets: Vec<ValidTarget>,
-    errors: Vec<Error>,
+    pub valid_targets: Vec<ValidTarget>,
+    pub errors: Vec<Error>,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
-struct ValidTarget {
+pub struct ValidTarget {
     #[serde(flatten)]
     gene: ValidGene,
     group: String,
@@ -241,7 +241,7 @@ struct ValidTarget {
 }
 
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, Hash)]
-struct ValidGene {
+pub struct ValidGene {
     ensembl_id: EnsemblId,
     gene_name: GeneName,
 }
@@ -262,7 +262,7 @@ struct UnvalidatedGene {
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
-struct Error {
+pub struct Error {
     line_number: Option<usize>,
     submitted_target: Option<UnvalidatedTarget>,
     errors: Vec<ErrorInner>,
@@ -270,7 +270,7 @@ struct Error {
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case", tag = "type")]
-enum ErrorInner {
+pub enum ErrorInner {
     MissingField(&'static str),
     ParseBool {
         value: String,
@@ -311,10 +311,7 @@ mod tests {
     #[test]
     fn renaming_fields() {
         let original_fieldnames = ["field1", "field2"].iter().collect();
-        let field_aliases = [("field1", "field_1")]
-            .map(|(k, v)| (k.to_owned(), v.to_owned()))
-            .into_iter()
-            .collect();
+        let field_aliases = [("field1", "field_1")].into_iter().collect();
 
         let (renamed_fields, error) = rename_fields(original_fieldnames, &field_aliases);
 
