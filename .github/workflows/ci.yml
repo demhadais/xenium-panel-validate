@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Cache cargo files
         uses: Swatinem/rust-cache@v2
@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Cache cargo files
         uses: Swatinem/rust-cache@v2
@@ -39,16 +39,16 @@ jobs:
           cache-on-failure: true
 
       - name: Install nightly toolchain
-        run: rustup component add --toolchain nightly-2026-05-19 rustfmt # Update this every now and then
+        run: rustup component add --toolchain nightly-2026-06-21 rustfmt # Update this every now and then
 
       - name: Format
-        run: cargo +nightly-2026-05-19 fmt -- --check
+        run: cargo +nightly-2026-06-21 fmt -- --check
 
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Cache cargo files
         uses: Swatinem/rust-cache@v2
