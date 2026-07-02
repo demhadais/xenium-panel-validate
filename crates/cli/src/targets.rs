@@ -42,7 +42,9 @@ pub fn parse_target_list_from_file(
             }
         })?;
 
-    // This repetition sucks, but the only way to fix it is to make a closure that takes a Box<impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)> + Copy>, which is not worth it for just 4 repetitions
+    // This repetition sucks, but the only way to fix it is to make a closure that
+    // takes a Box<impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)> +
+    // Copy>, which is not worth it for just 4 repetitions
     let result = match (species, chemistry) {
         (Species::HomoSapiens, Chemistry::V1) => parse_target_list(
             &target_list,
