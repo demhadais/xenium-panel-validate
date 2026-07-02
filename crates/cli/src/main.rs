@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
 
             write_report(&parsed_targets, output.as_deref())?;
         }
-    };
+    }
 
     Ok(())
 }

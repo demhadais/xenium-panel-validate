@@ -11,6 +11,7 @@ use xenium_panel_validate::gene_list::{
     parse_target_list,
 };
 
+#[allow(clippy::missing_errors_doc)]
 pub fn parse_target_list_from_file(
     target_path: &Utf8Path,
     species: Species,
@@ -33,12 +34,12 @@ pub fn parse_target_list_from_file(
                 }
             })?;
 
-    let field_aliases = read_field_aliases(field_alias_file_contents.as_deref(), &field_aliases)
+    let field_aliases = read_field_aliases(field_alias_file_contents.as_deref(), field_aliases)
         .with_context(|| {
             if let Some(path) = field_alias_path {
-                format!("failed to read field aliases from {path}",)
+                format!("failed to read field aliases from {path}")
             } else {
-                format!("failed to construct field aliases")
+                "failed to construct field aliases".to_owned()
             }
         })?;
 
@@ -84,7 +85,7 @@ fn read_field_aliases<'a>(
         return Ok(field_aliases);
     };
 
-    let aliases_from_file: HashMap<_, _> = toml::from_slice(&aliases_from_file)?;
+    let aliases_from_file: HashMap<_, _> = toml::from_slice(aliases_from_file)?;
 
     for (alias, field) in aliases_from_file {
         // We want field-aliases from the CLI to take precedence
