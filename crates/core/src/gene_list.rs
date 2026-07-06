@@ -25,13 +25,12 @@ pub fn parse_target_list(
     let mut valid_targets = Vec::with_capacity(N_GENES);
     let mut genes = HashSet::with_capacity(N_GENES);
 
-    for (line_number, record) in reader
-        .into_records()
-        .enumerate()
-        .map(|(ln, r)| (Some(ln), r))
-    {
+    for record in reader.into_records() {
+        let record = record?;
+        let line_number = record.position().map(csv::Position::line);
+
         let (submitted_target, result) =
-            parse_target_from_record(record?, fieldnames, ensembl_id_to_gene);
+            parse_target_from_record(record, fieldnames, ensembl_id_to_gene);
         let submitted_target = Some(submitted_target);
 
         match result {
@@ -71,9 +70,7 @@ fn rename_fields(
     let mut errors = Vec::new();
 
     for original in &original_fieldnames {
-        let renamed = field_aliases
-            .get(original.to_lowercase().as_str())
-            .unwrap_or(&original);
+        let renamed = field_aliases.get(original).unwrap_or(&original);
 
         renamed_fields.push_field(renamed);
 
@@ -159,12 +156,14 @@ fn validate_target(
     };
 
     match (valid_gene, group, is_backup, must_have) {
-        (Some(valid_gene), Some(group), Some(is_backup), Some(must_have)) => Ok(ValidTarget {
-            gene: valid_gene,
-            group: group.to_lowercase(),
-            is_backup,
-            must_have,
-        }),
+        (Some(valid_gene), Some(group), Some(is_backup), Some(must_have)) if errors.is_empty() => {
+            Ok(ValidTarget {
+                gene: valid_gene,
+                group: group.to_lowercase(),
+                is_backup,
+                must_have,
+            })
+        }
         _ => Err(errors),
     }
 }
@@ -187,18 +186,16 @@ fn validate_ensembl_id_gene_name_pair(
         gene_name,
     };
 
-    let valid_gene = if ensembl_id.is_versionless_and_uppercase() {
-        ensembl_id_to_gene_name(ensembl_id)
-            .map(map_valid_gene)
-            .ok_or(ErrorInner::GeneNotFound)?
-    } else {
-        let maybe_valid_gene =
+    if !ensembl_id.is_versionless_and_uppercase() {
+        let correct_gene =
             ensembl_id_to_gene_name(&ensembl_id.to_versionless_uppercase()).map(map_valid_gene);
 
-        return Err(ErrorInner::VersionedOrLowercaseEnsemblId {
-            correct_gene: maybe_valid_gene,
-        });
-    };
+        return Err(ErrorInner::VersionedOrLowercaseEnsemblId { correct_gene });
+    }
+
+    let valid_gene = ensembl_id_to_gene_name(ensembl_id)
+        .map(map_valid_gene)
+        .ok_or(ErrorInner::GeneNotFound)?;
 
     let Some(submitted_gene_name) = submitted_gene_name else {
         return Err(ErrorInner::NoGeneName {
@@ -263,7 +260,7 @@ struct UnvalidatedGene {
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct Error {
-    line_number: Option<usize>,
+    line_number: Option<u64>,
     submitted_target: Option<UnvalidatedTarget>,
     errors: Vec<ErrorInner>,
 }
@@ -430,11 +427,119 @@ mod tests {
             }]
         );
 
-        assert_eq!(
-            errors.as_array::<1>().unwrap()[0].errors,
-            [ErrorInner::DuplicateGene],
-            "did not find exactly 1 error: {:?}",
-            errors
+        assert_eq!(errors.len(), 1, "did not find exactly 1 error: {errors:?}");
+        assert_eq!(errors[0].errors, [ErrorInner::DuplicateGene]);
+    }
+
+    #[test]
+    fn backup_and_must_have_is_rejected() {
+        let ensembl_id = tp53_ensembl_id();
+        let ensembl_id_str = ensembl_id.as_str();
+
+        let gene_list = format!(
+            "ensembl_id,gene_name,group,is_backup,must_have\n{ensembl_id_str},TP53,group0,true,\
+             true"
         );
+
+        let ParsedTargetList {
+            valid_targets,
+            errors,
+        } = parse_target_list(
+            &gene_list,
+            &HashMap::new(),
+            xenium_v1_human_ensembl_id_to_gene_name,
+        )
+        .unwrap();
+
+        assert!(
+            valid_targets.is_empty(),
+            "a row that is both a backup and a must-have should not be valid"
+        );
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].errors, [ErrorInner::BackupAndMustHave]);
+    }
+
+    #[test]
+    fn versioned_or_lowercase_ensembl_id_suggests_correct_gene() {
+        let ensembl_id = tp53_ensembl_id();
+        let (correct_ensembl_id, correct_gene_name) =
+            xenium_v1_human_ensembl_id_to_gene_name(&ensembl_id).unwrap();
+
+        let versioned =
+            UnvalidatedEnsemblId::new(format!("{}.1", ensembl_id.as_str().to_lowercase()));
+
+        let err = validate_ensembl_id_gene_name_pair(
+            &UnvalidatedGene {
+                ensembl_id: Some(versioned),
+                gene_name: Some(UnvalidatedGeneName::new("TP53".to_owned())),
+            },
+            xenium_v1_human_ensembl_id_to_gene_name,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            ErrorInner::VersionedOrLowercaseEnsemblId {
+                correct_gene: Some(ValidGene {
+                    ensembl_id: correct_ensembl_id,
+                    gene_name: correct_gene_name,
+                }),
+            }
+        );
+    }
+
+    #[test]
+    fn unavailable_ensembl_id_is_gene_not_found() {
+        let err = validate_ensembl_id_gene_name_pair(
+            &UnvalidatedGene {
+                ensembl_id: Some(UnvalidatedEnsemblId::new("ENSG00000273816".to_owned())),
+                gene_name: Some(UnvalidatedGeneName::new(String::new())),
+            },
+            xenium_v1_human_ensembl_id_to_gene_name,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, ErrorInner::GeneNotFound);
+    }
+
+    #[test]
+    fn missing_gene_name_suggests_probable_name() {
+        let ensembl_id = tp53_ensembl_id();
+        let (_, correct_gene_name) = xenium_v1_human_ensembl_id_to_gene_name(&ensembl_id).unwrap();
+
+        let err = validate_ensembl_id_gene_name_pair(
+            &UnvalidatedGene {
+                ensembl_id: Some(ensembl_id),
+                gene_name: None,
+            },
+            xenium_v1_human_ensembl_id_to_gene_name,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            ErrorInner::NoGeneName {
+                probable_gene_name: correct_gene_name
+            }
+        );
+    }
+
+    #[test]
+    fn error_reports_the_file_line_number() {
+        let gene_list = "ensembl_id,gene_name,group,is_backup,must_have\nid,gene,0,false,false";
+
+        let ParsedTargetList {
+            valid_targets,
+            errors,
+        } = parse_target_list(
+            gene_list,
+            &HashMap::new(),
+            xenium_v1_human_ensembl_id_to_gene_name,
+        )
+        .unwrap();
+
+        assert!(valid_targets.is_empty());
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].line_number, Some(2));
     }
 }

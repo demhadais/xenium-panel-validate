@@ -1,5 +1,4 @@
 #![allow(clippy::unreadable_literal)]
-use phf::{PhfEq, PhfHash};
 use serde::{Deserialize, Serialize};
 
 mod xenium_prime_human;
@@ -7,7 +6,7 @@ mod xenium_prime_mouse;
 mod xenium_v1_human;
 mod xenium_v1_mouse;
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EnsemblId(&'static str);
 
 impl EnsemblId {
@@ -17,13 +16,7 @@ impl EnsemblId {
     }
 }
 
-impl PhfHash for EnsemblId {
-    fn phf_hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.phf_hash(state);
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneName(&'static str);
 
 impl GeneName {
@@ -44,13 +37,7 @@ impl UnvalidatedEnsemblId {
 
     #[must_use]
     pub fn to_versionless_uppercase(&self) -> Self {
-        Self(
-            self.0
-                .split('.')
-                .next()
-                .map(str::to_uppercase)
-                .unwrap_or_default(),
-        )
+        Self(self.0.split('.').next().unwrap_or("").to_uppercase())
     }
 
     #[must_use]
@@ -66,18 +53,6 @@ impl UnvalidatedEnsemblId {
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
-    }
-}
-
-impl PhfHash for UnvalidatedEnsemblId {
-    fn phf_hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.phf_hash(state);
-    }
-}
-
-impl PhfEq<UnvalidatedEnsemblId> for EnsemblId {
-    fn phf_eq(&self, other: &UnvalidatedEnsemblId) -> bool {
-        self.0.phf_eq(&other.0)
     }
 }
 

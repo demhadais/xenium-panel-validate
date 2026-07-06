@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
                 species,
                 chemistry,
                 field_alias_path.as_deref(),
-                &field_aliases.unwrap_or_default(),
+                &field_aliases,
             )?;
 
             let parsed_targets = match output_format {
@@ -61,20 +61,16 @@ enum Cli {
         #[clap(long, short = 'p')]
         field_alias_path: Option<Utf8PathBuf>,
         #[clap(long, short = 'a', value_parser = parse_field_aliases)]
-        field_aliases: Option<Vec<(String, String)>>,
+        field_aliases: Vec<(String, String)>,
         #[clap(flatten)]
         common: CommonOptions,
     },
 }
 
-fn parse_field_aliases(s: &str) -> anyhow::Result<(String, String)>
-where
-{
+fn parse_field_aliases(s: &str) -> anyhow::Result<(String, String)> {
     s.split_once('=')
-        .map(|(field, alias)| (field.to_owned(), alias.to_owned()))
-        .ok_or(anyhow!(
-            "field aliases must be specified as '<ALIAS>=<FIELD>'"
-        ))
+        .map(|(alias, field)| (alias.to_owned(), field.to_owned()))
+        .ok_or_else(|| anyhow!("field aliases must be specified as '<ALIAS>=<FIELD>'"))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, clap::Args)]

@@ -43,33 +43,18 @@ pub fn parse_target_list_from_file(
             }
         })?;
 
-    // This repetition sucks, but the only way to fix it is to make a closure that
-    // takes a Box<impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)> +
-    // Copy>, which is not worth it for just 4 repetitions
-    let result = match (species, chemistry) {
-        (Species::HomoSapiens, Chemistry::V1) => parse_target_list(
-            &target_list,
-            &field_aliases,
-            xenium_v1_human_ensembl_id_to_gene_name,
-        ),
-        (Species::HomoSapiens, Chemistry::Prime) => parse_target_list(
-            &target_list,
-            &field_aliases,
-            xenium_prime_human_ensembl_id_to_gene_name,
-        ),
-        (Species::MusMusculus, Chemistry::V1) => parse_target_list(
-            &target_list,
-            &field_aliases,
-            xenium_v1_mouse_ensembl_id_to_gene_name,
-        ),
-        (Species::MusMusculus, Chemistry::Prime) => parse_target_list(
-            &target_list,
-            &field_aliases,
-            xenium_prime_mouse_ensembl_id_to_gene_name,
-        ),
+    let ensembl_id_to_gene_name = match (species, chemistry) {
+        (Species::HomoSapiens, Chemistry::V1) => xenium_v1_human_ensembl_id_to_gene_name,
+        (Species::HomoSapiens, Chemistry::Prime) => xenium_prime_human_ensembl_id_to_gene_name,
+        (Species::MusMusculus, Chemistry::V1) => xenium_v1_mouse_ensembl_id_to_gene_name,
+        (Species::MusMusculus, Chemistry::Prime) => xenium_prime_mouse_ensembl_id_to_gene_name,
     };
 
-    Ok(result?)
+    Ok(parse_target_list(
+        &target_list,
+        &field_aliases,
+        ensembl_id_to_gene_name,
+    )?)
 }
 
 fn read_field_aliases<'a>(
