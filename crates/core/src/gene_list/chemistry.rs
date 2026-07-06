@@ -46,8 +46,8 @@ impl UnvalidatedEnsemblId {
     pub fn to_versionless_uppercase(&self) -> Self {
         Self(
             self.0
-                .split_once('.')
-                .map(|(p1, _)| p1)
+                .split('.')
+                .next()
                 .map(str::to_uppercase)
                 .unwrap_or_default(),
         )
