@@ -49,14 +49,14 @@ async fn main() -> anyhow::Result<()> {
     let human_v1_map = construct_map(&annotations, human_v1_unavailable);
     write_map_to_file(
         &PathBuf::from("src/gene_list/chemistry/xenium_v1_human.rs"),
-        "XENIUM_V1_HUMAN_ENSEMBL_IDS",
+        "XENIUM_V1_HUMAN_GENES",
         &human_v1_map,
     )?;
 
     let human_prime_map = construct_map(&annotations, human_prime_unavailable);
     write_map_to_file(
         &PathBuf::from("src/gene_list/chemistry/xenium_prime_human.rs"),
-        "XENIUM_PRIME_HUMAN_ENSEMBL_IDS",
+        "XENIUM_PRIME_HUMAN_GENES",
         &human_prime_map,
     )?;
 
@@ -66,14 +66,14 @@ async fn main() -> anyhow::Result<()> {
     let mouse_v1_map = construct_map(&annotations, mouse_v1_unavailable);
     write_map_to_file(
         &PathBuf::from("src/gene_list/chemistry/xenium_v1_mouse.rs"),
-        "XENIUM_V1_MOUSE_ENSEMBL_IDS",
+        "XENIUM_V1_MOUSE_GENES",
         &mouse_v1_map,
     )?;
 
     let mouse_prime_enums = construct_map(&annotations, mouse_prime_unavailable);
     write_map_to_file(
         &PathBuf::from("src/gene_list/chemistry/xenium_prime_mouse.rs"),
-        "XENIUM_PRIME_MOUSE_ENSEMBL_IDS",
+        "XENIUM_PRIME_MOUSE_GENES",
         &mouse_prime_enums,
     )?;
 
