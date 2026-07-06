@@ -5,8 +5,8 @@ use camino::Utf8Path;
 use xenium_panel_validate::gene_list::{
     ParsedTargetList,
     chemistry::{
-        xenium_prime_human_ensembl_id_to_gene_name, xenium_prime_mouse_ensembl_id_to_gene_name,
-        xenium_v1_human_ensembl_id_to_gene_name, xenium_v1_mouse_ensembl_id_to_gene_name,
+        xenium_prime_human_ensembl_id_to_gene, xenium_prime_mouse_ensembl_id_to_gene,
+        xenium_v1_human_ensembl_id_to_gene, xenium_v1_mouse_ensembl_id_to_gene,
     },
     parse_target_list,
 };
@@ -43,17 +43,17 @@ pub fn parse_target_list_from_file(
             }
         })?;
 
-    let ensembl_id_to_gene_name = match (species, chemistry) {
-        (Species::HomoSapiens, Chemistry::V1) => xenium_v1_human_ensembl_id_to_gene_name,
-        (Species::HomoSapiens, Chemistry::Prime) => xenium_prime_human_ensembl_id_to_gene_name,
-        (Species::MusMusculus, Chemistry::V1) => xenium_v1_mouse_ensembl_id_to_gene_name,
-        (Species::MusMusculus, Chemistry::Prime) => xenium_prime_mouse_ensembl_id_to_gene_name,
+    let ensembl_id_to_gene = match (species, chemistry) {
+        (Species::HomoSapiens, Chemistry::V1) => xenium_v1_human_ensembl_id_to_gene,
+        (Species::HomoSapiens, Chemistry::Prime) => xenium_prime_human_ensembl_id_to_gene,
+        (Species::MusMusculus, Chemistry::V1) => xenium_v1_mouse_ensembl_id_to_gene,
+        (Species::MusMusculus, Chemistry::Prime) => xenium_prime_mouse_ensembl_id_to_gene,
     };
 
     Ok(parse_target_list(
         &target_list,
         &field_aliases,
-        ensembl_id_to_gene_name,
+        ensembl_id_to_gene,
     )?)
 }
 

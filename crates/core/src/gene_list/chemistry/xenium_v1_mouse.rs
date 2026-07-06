@@ -1,4 +1,4 @@
-pub static XENIUM_V1_MOUSE_ENSEMBL_IDS: phf::Map<&'static str, &'static str> = ::phf::Map {
+pub static XENIUM_V1_MOUSE_GENES: phf::Map<&'static str, &'static str> = ::phf::Map {
     key: 16287231350648472473,
     pilots: &[
         5, 10, 26, 53, 0, 21, 11, 74, 99, 2, 13, 0, 2, 6, 21, 64, 171, 42, 10, 0, 117, 2, 3, 85,

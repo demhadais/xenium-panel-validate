@@ -78,40 +78,34 @@ impl PartialEq<GeneName> for UnvalidatedGeneName {
 }
 
 #[must_use]
-pub fn xenium_v1_human_ensembl_id_to_gene_name(
+pub fn xenium_v1_human_ensembl_id_to_gene(
     ensembl_id: &UnvalidatedEnsemblId,
 ) -> Option<(EnsemblId, GeneName)> {
-    ensembl_id_to_gene_name(ensembl_id, &xenium_v1_human::XENIUM_V1_HUMAN_ENSEMBL_IDS)
+    ensembl_id_to_gene(ensembl_id, &xenium_v1_human::XENIUM_V1_HUMAN_GENES)
 }
 
 #[must_use]
-pub fn xenium_prime_human_ensembl_id_to_gene_name(
+pub fn xenium_prime_human_ensembl_id_to_gene(
     ensembl_id: &UnvalidatedEnsemblId,
 ) -> Option<(EnsemblId, GeneName)> {
-    ensembl_id_to_gene_name(
-        ensembl_id,
-        &xenium_prime_human::XENIUM_PRIME_HUMAN_ENSEMBL_IDS,
-    )
+    ensembl_id_to_gene(ensembl_id, &xenium_prime_human::XENIUM_PRIME_HUMAN_GENES)
 }
 
 #[must_use]
-pub fn xenium_v1_mouse_ensembl_id_to_gene_name(
+pub fn xenium_v1_mouse_ensembl_id_to_gene(
     ensembl_id: &UnvalidatedEnsemblId,
 ) -> Option<(EnsemblId, GeneName)> {
-    ensembl_id_to_gene_name(ensembl_id, &xenium_v1_mouse::XENIUM_V1_MOUSE_ENSEMBL_IDS)
+    ensembl_id_to_gene(ensembl_id, &xenium_v1_mouse::XENIUM_V1_MOUSE_GENES)
 }
 
 #[must_use]
-pub fn xenium_prime_mouse_ensembl_id_to_gene_name(
+pub fn xenium_prime_mouse_ensembl_id_to_gene(
     ensembl_id: &UnvalidatedEnsemblId,
 ) -> Option<(EnsemblId, GeneName)> {
-    ensembl_id_to_gene_name(
-        ensembl_id,
-        &xenium_prime_mouse::XENIUM_PRIME_MOUSE_ENSEMBL_IDS,
-    )
+    ensembl_id_to_gene(ensembl_id, &xenium_prime_mouse::XENIUM_PRIME_MOUSE_GENES)
 }
 
-fn ensembl_id_to_gene_name(
+fn ensembl_id_to_gene(
     ensembl_id: &UnvalidatedEnsemblId,
     map: &phf::Map<&'static str, &'static str>,
 ) -> Option<(EnsemblId, GeneName)> {
@@ -122,10 +116,9 @@ fn ensembl_id_to_gene_name(
 #[cfg(test)]
 pub mod tests {
     use crate::gene_list::chemistry::{
-        GeneName, UnvalidatedEnsemblId, xenium_prime_human::XENIUM_PRIME_HUMAN_ENSEMBL_IDS,
-        xenium_prime_mouse::XENIUM_PRIME_MOUSE_ENSEMBL_IDS,
-        xenium_v1_human::XENIUM_V1_HUMAN_ENSEMBL_IDS, xenium_v1_human_ensembl_id_to_gene_name,
-        xenium_v1_mouse::XENIUM_V1_MOUSE_ENSEMBL_IDS,
+        GeneName, UnvalidatedEnsemblId, xenium_prime_human::XENIUM_PRIME_HUMAN_GENES,
+        xenium_prime_mouse::XENIUM_PRIME_MOUSE_GENES, xenium_v1_human::XENIUM_V1_HUMAN_GENES,
+        xenium_v1_human_ensembl_id_to_gene, xenium_v1_mouse::XENIUM_V1_MOUSE_GENES,
     };
 
     pub fn tp53_ensembl_id() -> UnvalidatedEnsemblId {
@@ -135,10 +128,10 @@ pub mod tests {
     #[test]
     fn unavailable_genes_are_not_in_map() {
         let unavailable_genes = [
-            ("ENSG00000273816", &XENIUM_V1_HUMAN_ENSEMBL_IDS),
-            ("ENSG00000249966", &XENIUM_PRIME_HUMAN_ENSEMBL_IDS),
-            ("ENSMUSG00000117061", &XENIUM_V1_MOUSE_ENSEMBL_IDS),
-            ("ENSMUSG00000094028", &XENIUM_PRIME_MOUSE_ENSEMBL_IDS),
+            ("ENSG00000273816", &XENIUM_V1_HUMAN_GENES),
+            ("ENSG00000249966", &XENIUM_PRIME_HUMAN_GENES),
+            ("ENSMUSG00000117061", &XENIUM_V1_MOUSE_GENES),
+            ("ENSMUSG00000094028", &XENIUM_PRIME_MOUSE_GENES),
         ];
 
         for (ensembl_id, map) in unavailable_genes {
@@ -160,7 +153,7 @@ pub mod tests {
         let ensembl_id = tp53_ensembl_id().to_versionless_uppercase();
 
         std::assert_matches!(
-            xenium_v1_human_ensembl_id_to_gene_name(&ensembl_id).unwrap(),
+            xenium_v1_human_ensembl_id_to_gene(&ensembl_id).unwrap(),
             (_, GeneName("TP53"))
         );
     }
