@@ -7,6 +7,7 @@ mod xenium_prime_mouse;
 mod xenium_v1_human;
 mod xenium_v1_mouse;
 
+#[must_use]
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EnsemblId(&'static str);
 
@@ -23,6 +24,7 @@ impl PhfHash for EnsemblId {
     }
 }
 
+#[must_use]
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneName(&'static str);
 
@@ -33,12 +35,16 @@ impl GeneName {
     }
 }
 
+#[must_use]
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct UnvalidatedEnsemblId(pub String);
+pub struct UnvalidatedEnsemblId(String);
 
 impl UnvalidatedEnsemblId {
+    pub fn new(ensembl_id: String) -> Self {
+        Self(ensembl_id)
+    }
+
     #[allow(clippy::missing_panics_doc)]
-    #[must_use]
     pub fn to_versionless_uppercase(&self) -> Self {
         Self(self.0.split('.').next().unwrap().to_uppercase())
     }
@@ -71,10 +77,15 @@ impl PhfEq<UnvalidatedEnsemblId> for EnsemblId {
     }
 }
 
+#[must_use]
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct UnvalidatedGeneName(pub String);
+pub struct UnvalidatedGeneName(String);
 
 impl UnvalidatedGeneName {
+    pub fn new(gene_name: String) -> Self {
+        Self(gene_name)
+    }
+
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0

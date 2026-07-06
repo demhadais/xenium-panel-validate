@@ -225,12 +225,14 @@ fn parse_bool_from_str(s: Option<&str>, fieldname: &'static str) -> Result<bool,
     s.parse().map_err(|_| ErrorInner::ParseBool { value: s })
 }
 
+#[must_use]
 #[derive(Clone, Debug, Serialize)]
 pub struct ParsedTargetList {
     pub valid_targets: Vec<ValidTarget>,
     pub errors: Vec<Error>,
 }
 
+#[must_use]
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct ValidTarget {
     #[serde(flatten)]
@@ -240,6 +242,7 @@ pub struct ValidTarget {
     must_have: bool,
 }
 
+#[must_use]
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, Hash)]
 pub struct ValidGene {
     ensembl_id: EnsemblId,
@@ -261,6 +264,7 @@ struct UnvalidatedGene {
     gene_name: Option<UnvalidatedGeneName>,
 }
 
+#[must_use]
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct Error {
     line_number: Option<usize>,
@@ -268,6 +272,7 @@ pub struct Error {
     errors: Vec<ErrorInner>,
 }
 
+#[must_use]
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ErrorInner {
@@ -347,7 +352,7 @@ mod tests {
             deserialized,
             [UnvalidatedTarget {
                 gene: UnvalidatedGene {
-                    ensembl_id: Some(UnvalidatedEnsemblId("id".to_owned())),
+                    ensembl_id: Some(UnvalidatedEnsemblId::new("id".to_owned())),
                     gene_name: None
                 },
                 group: None,
@@ -359,10 +364,10 @@ mod tests {
 
     #[test]
     fn valid_gene() {
-        validate_ensembl_id_gene_name_pair(
+        let _ = validate_ensembl_id_gene_name_pair(
             &UnvalidatedGene {
                 ensembl_id: Some(tp53_ensembl_id()),
-                gene_name: Some(UnvalidatedGeneName("TP53".to_owned())),
+                gene_name: Some(UnvalidatedGeneName::new("TP53".to_owned())),
             },
             xenium_v1_human_ensembl_id_to_gene_name,
         )
@@ -372,7 +377,7 @@ mod tests {
     #[test]
     fn ensembl_id_gene_name_mismatch() {
         let ensembl_id = tp53_ensembl_id();
-        let gene_name = UnvalidatedGeneName(String::new());
+        let gene_name = UnvalidatedGeneName::new(String::new());
 
         let err = validate_ensembl_id_gene_name_pair(
             &UnvalidatedGene {
