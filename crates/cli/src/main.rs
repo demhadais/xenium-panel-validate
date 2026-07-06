@@ -15,7 +15,11 @@ fn main() -> anyhow::Result<()> {
             chemistry,
             field_alias_path,
             field_aliases,
-            common: CommonOptions { format, output },
+            common:
+                CommonOptions {
+                    output_format,
+                    output,
+                },
         } => {
             let parsed_targets = parse_target_list_from_file(
                 &target_path,
@@ -25,7 +29,7 @@ fn main() -> anyhow::Result<()> {
                 &field_aliases.unwrap_or_default(),
             )?;
 
-            let parsed_targets = match format {
+            let parsed_targets = match output_format {
                 Format::Json => serde_json::to_string(&parsed_targets)?,
             };
 
@@ -54,7 +58,7 @@ enum Cli {
         species: Species,
         #[clap(long, short)]
         chemistry: Chemistry,
-        #[clap(long)]
+        #[clap(long, short = 'p')]
         field_alias_path: Option<Utf8PathBuf>,
         #[clap(long, short = 'a', value_parser = parse_field_aliases)]
         field_aliases: Option<Vec<(String, String)>>,
@@ -75,8 +79,8 @@ where
 
 #[derive(Debug, Clone, PartialEq, Eq, clap::Args)]
 struct CommonOptions {
-    #[clap(long, short, default_value_t = Format::Json)]
-    format: Format,
+    #[clap(long, short = 'f', default_value_t = Format::Json)]
+    output_format: Format,
     #[clap(long, short)]
     output: Option<camino::Utf8PathBuf>,
 }

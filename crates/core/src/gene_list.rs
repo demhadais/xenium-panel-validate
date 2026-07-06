@@ -190,7 +190,7 @@ fn validate_ensembl_id_gene_name_pair(
     let valid_gene = if ensembl_id.is_versionless_and_uppercase() {
         ensembl_id_to_gene_name(ensembl_id)
             .map(map_valid_gene)
-            .ok_or(ErrorInner::InvalidGene)?
+            .ok_or(ErrorInner::GeneNotFound)?
     } else {
         let maybe_valid_gene =
             ensembl_id_to_gene_name(&ensembl_id.to_versionless_uppercase()).map(map_valid_gene);
@@ -290,7 +290,7 @@ pub enum ErrorInner {
         correct_gene_name: GeneName,
     },
     BackupAndMustHave,
-    InvalidGene,
+    GeneNotFound,
     DuplicateGene,
 }
 
