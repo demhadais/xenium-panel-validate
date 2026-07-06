@@ -225,14 +225,12 @@ fn parse_bool_from_str(s: Option<&str>, fieldname: &'static str) -> Result<bool,
     s.parse().map_err(|_| ErrorInner::ParseBool { value: s })
 }
 
-#[must_use]
 #[derive(Clone, Debug, Serialize)]
 pub struct ParsedTargetList {
     pub valid_targets: Vec<ValidTarget>,
     pub errors: Vec<Error>,
 }
 
-#[must_use]
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct ValidTarget {
     #[serde(flatten)]
@@ -242,7 +240,6 @@ pub struct ValidTarget {
     must_have: bool,
 }
 
-#[must_use]
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, Hash)]
 pub struct ValidGene {
     ensembl_id: EnsemblId,
@@ -264,7 +261,6 @@ struct UnvalidatedGene {
     gene_name: Option<UnvalidatedGeneName>,
 }
 
-#[must_use]
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct Error {
     line_number: Option<usize>,
@@ -272,7 +268,6 @@ pub struct Error {
     errors: Vec<ErrorInner>,
 }
 
-#[must_use]
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ErrorInner {
