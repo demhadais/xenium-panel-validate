@@ -99,7 +99,13 @@ fn read_gene_annotations_into(
     path: &Path,
     genes_buf: &mut HashSet<(String, String)>,
 ) -> anyhow::Result<()> {
-    let mut reader = GeneAnnotationFileReader::new(BufReader::new(File::open(path)?));
+    let mut reader =
+        GeneAnnotationFileReader::new(BufReader::new(File::open(path).with_context(|| {
+            format!(
+                "failed to read gene annotations from {}",
+                path.to_str().expect("path should be UTF-8")
+            )
+        })?));
 
     for record in reader.record_bufs() {
         let record = record?;

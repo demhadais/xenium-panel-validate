@@ -18,6 +18,9 @@ jobs:
       - name: Unzip gene annotations
         run: gzip --decompress *.gz
 
+      - name: List files
+        run: ls
+
       - name: Check out repository code
         uses: actions/checkout@v7
 
@@ -31,7 +34,7 @@ jobs:
       - name: Build crates
         env:
           BUILD_XENIUM_PANEL_VALIDATE: "true"
-        run: cargo build --package xenium-panel-validate-cli --release
+        run: cargo build --workspace
 
       - name: Compare committed code to regenerated code
         run: git diff --exit-code
