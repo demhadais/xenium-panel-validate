@@ -35,3 +35,6 @@ jobs:
 
       - name: Compare committed code to regenerated code
         run: git diff --exit-code
+
+      - name: Publish to crates.io
+        run: cargo publish --workspace
