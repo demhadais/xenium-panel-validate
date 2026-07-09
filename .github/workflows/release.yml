@@ -6,6 +6,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+
       - name: Download gene annotations
         run: >
           curl
@@ -18,11 +21,8 @@ jobs:
       - name: Unzip gene annotations
         run: gzip --decompress *.gz
 
-      - name: List files
+      - name: List files (debug)
         run: ls
-
-      - name: Check out repository code
-        uses: actions/checkout@v7
 
       - name: Cache cargo files
         uses: Swatinem/rust-cache@v2
@@ -35,6 +35,13 @@ jobs:
         env:
           BUILD_XENIUM_PANEL_VALIDATE: "true"
         run: cargo build --workspace
+
+      - name: Install nightly toolchain
+        run: rustup component add --toolchain nightly-2026-06-21 rustfmt # Update this every now and then
+
+      - name: Format
+        # This is necessary else the next step fails
+        run: cargo +nightly-2026-06-21 fmt
 
       - name: Compare committed code to regenerated code
         run: git diff --exit-code
