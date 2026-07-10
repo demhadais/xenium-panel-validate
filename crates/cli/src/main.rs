@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::{Context, anyhow};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
-use xenium_panel_validate_cli::targets::{Chemistry, Species, parse_target_list_from_file};
+use xenium_panel_validate::targets::{Chemistry, Species, parse_target_list_from_file};
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
