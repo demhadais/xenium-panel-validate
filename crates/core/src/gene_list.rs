@@ -121,7 +121,7 @@ fn validate_target(
     let mut errors = Vec::with_capacity(4);
 
     if group.is_none() {
-        errors.push(ErrorInner::MissingField("group"));
+        errors.push(ErrorInner::MissingField { fieldname: "group" });
     }
 
     let is_backup = match parse_bool_from_str(is_backup.as_deref(), "is_backup") {
@@ -214,7 +214,7 @@ fn validate_ensembl_id_gene_name_pair(
 
 fn parse_bool_from_str(s: Option<&str>, fieldname: &'static str) -> Result<bool, ErrorInner> {
     let Some(s) = s else {
-        return Err(ErrorInner::MissingField(fieldname));
+        return Err(ErrorInner::MissingField { fieldname });
     };
 
     let s = s.to_lowercase();
@@ -268,7 +268,9 @@ pub struct Error {
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ErrorInner {
-    MissingField(&'static str),
+    MissingField {
+        fieldname: &'static str,
+    },
     ParseBool {
         value: String,
     },
