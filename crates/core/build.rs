@@ -7,12 +7,13 @@ use std::{
 };
 
 use anyhow::Context;
-use bstr::{BString, ByteSlice};
+use bstr::ByteSlice;
 use noodles::gff::feature::{RecordBuf, record_buf::attributes::field::Value};
 use serde::Deserialize;
 use url::Url;
 
-const N_GENES: usize = 24_000;
+// About 60,000 genes for human (the larger set of annotations), the closest power of 2 is 2^16
+const N_GENES: usize = 65_356;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -180,15 +181,7 @@ async fn fetch_unavailable_ensembl_ids(
 }
 
 fn parse_ensembl_id_and_name_from_gtf_record(record: &RecordBuf) -> Option<(String, String)> {
-    if record.ty() != "gene" {
-        return None;
-    }
-
     let attributes = record.attributes();
-
-    if attributes.get(b"gene_type") != Some(&Value::String(BString::from("protein_coding"))) {
-        return None;
-    }
 
     let (Some(Value::String(gene_id)), Some(Value::String(gene_name))) =
         (attributes.get(b"gene_id"), attributes.get(b"gene_name"))
