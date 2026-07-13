@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs};
 
 use anyhow::Context;
 use camino::Utf8Path;
-use xenium_panel_validate::gene_list::{
+use xenium_panel_validate_core::gene_list::{
     ParsedTargetList,
     chemistry::{
         xenium_prime_human_ensembl_id_to_gene, xenium_prime_mouse_ensembl_id_to_gene,

@@ -2150,7 +2150,19 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "xenium-panel-validate"
-version = "0.1.0"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "camino",
+ "clap",
+ "serde_json",
+ "toml",
+ "xenium-panel-validate-core",
+]
+
+[[package]]
+name = "xenium-panel-validate-core"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bstr",
@@ -2165,18 +2177,6 @@ dependencies = [
  "tokio",
  "toml",
  "url",
-]
-
-[[package]]
-name = "xenium-panel-validate-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "camino",
- "clap",
- "serde_json",
- "toml",
- "xenium-panel-validate",
 ]
 
 [[package]]

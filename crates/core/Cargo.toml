@@ -1,5 +1,5 @@
 [package]
-name = "xenium-panel-validate"
+name = "xenium-panel-validate-core"
 version.workspace = true
 edition.workspace = true
 description.workspace = true

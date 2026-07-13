@@ -7,7 +7,7 @@ edition = "2024"
 authors = ["Ahmed Said"]
 license = "MIT"
 repository = "https://github.com/demhadais/xenium-panel-validate"
-version = "0.1.0"
+version = "0.2.0"
 description = "A library and CLI for validating the inputs for a Xenium panel design at the SCBL at The Jackson Laboratory."
 readme = "README.md"
 
