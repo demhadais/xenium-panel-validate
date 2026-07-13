@@ -12,7 +12,8 @@ use noodles::gff::feature::{RecordBuf, record_buf::attributes::field::Value};
 use serde::Deserialize;
 use url::Url;
 
-// About 60,000 genes for human (the larger set of annotations), the closest power of 2 is 2^16
+// There are roughly 60,000 annotated features (Ensembl IDs) in the human genome
+// (the larger of the two), so just allocate the nearest power of 2
 const N_GENES: usize = 65_356;
 
 #[tokio::main]
@@ -111,10 +112,7 @@ fn read_gene_annotations_into(
     for record in reader.record_bufs() {
         let record = record?;
 
-        let Some((ensembl_id, gene_name)) = parse_ensembl_id_and_name_from_gtf_record(&record)
-        else {
-            continue;
-        };
+        let (ensembl_id, gene_name) = parse_ensembl_id_and_name_from_gtf_record(&record);
 
         genes_buf.insert((ensembl_id, gene_name));
     }
@@ -180,7 +178,7 @@ async fn fetch_unavailable_ensembl_ids(
     Ok(gene_ids)
 }
 
-fn parse_ensembl_id_and_name_from_gtf_record(record: &RecordBuf) -> Option<(String, String)> {
+fn parse_ensembl_id_and_name_from_gtf_record(record: &RecordBuf) -> (String, String) {
     let attributes = record.attributes();
 
     let (Some(Value::String(gene_id)), Some(Value::String(gene_name))) =
@@ -189,7 +187,7 @@ fn parse_ensembl_id_and_name_from_gtf_record(record: &RecordBuf) -> Option<(Stri
         unreachable!("'gene_id' and 'gene_name' should be strings");
     };
 
-    Some((
+    (
         gene_id
             .to_str()
             .unwrap()
@@ -198,5 +196,5 @@ fn parse_ensembl_id_and_name_from_gtf_record(record: &RecordBuf) -> Option<(Stri
             .map(str::to_owned)
             .unwrap(),
         gene_name.to_str().map(str::to_owned).unwrap(),
-    ))
+    )
 }
