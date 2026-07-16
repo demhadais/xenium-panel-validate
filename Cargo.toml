@@ -34,7 +34,8 @@ phf_shared = { version = "0.14.0", features = ["ptrhash"] }
 clap = { version = "4.6.1", features = ["derive", "env"] }
 hdf5-metno = { version = "0.12.3", features = ["static"] }
 anndata = { version = "0.7.0" }
-anndata-hdf5= { version = "0.5.3" }
+anndata-hdf5 = { version = "0.5.3" }
+polars = { version = "0.53.0", default-features = false, features = ["strings"] }
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }

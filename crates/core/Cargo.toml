@@ -15,6 +15,7 @@ serde_json.workspace = true
 phf.workspace = true
 anndata.workspace = true
 anndata-hdf5.workspace = true
+polars.workspace = true
 
 [build-dependencies]
 noodles.workspace = true
