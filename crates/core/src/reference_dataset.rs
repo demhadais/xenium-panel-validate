@@ -79,7 +79,7 @@ fn check_raw_integer_counts(adata: &AnnData<H5>) -> Result<(), Error> {
 fn validate_var(
     adata: &AnnData<H5>,
     ensembl_id_column: &str,
-    gene_id_column: &str,
+    gene_name_column: &str,
 ) -> Result<(), Vec<Error>> {
     let mut errors = Vec::with_capacity(16);
 
@@ -167,10 +167,8 @@ mod tests {
     #[test]
     fn valid_anndata() {
         let path = Path::new(
-            "test-data/SOD1_G93A_mouse_spinal_cord_P112_specimen_1_SOD1_G93A_mouse_spinal_cord_P112_specimen_1_sample_filtered_feature_bc_matrix.h5ad",
+            "test-data/SOD1_G93A_mouse_spinal_cord_P112_specimen_1_SOD1_G93A_mouse_spinal_cord_P112_specimen_1_sample_filtered_feature_bc_matrix_small.h5ad",
         );
-
-        let path = Path::new("test-data/sample.h5ad");
 
         let file = H5::open(path).unwrap();
 
@@ -183,8 +181,6 @@ mod tests {
             },
         )
         .unwrap();
-
-        panic!("{:?}", report.adata.get_x().inner().data().unwrap());
 
         assert_eq!(report.errors, []);
     }
