@@ -32,10 +32,10 @@ phf_codegen = { version = "0.14.0", features = ["ptrhash"] }
 phf = { version = "0.14.0", features = ["ptrhash"] }
 phf_shared = { version = "0.14.0", features = ["ptrhash"] }
 clap = { version = "4.6.1", features = ["derive", "env"] }
-hdf5-metno = { version = "0.12.3", features = ["static"] }
-anndata = { version = "0.7.0" }
-anndata-hdf5 = { version = "0.5.3" }
-polars = { version = "0.53.0", default-features = false, features = ["strings"] }
+hdf5-metno = { version = "0.13.0", features = ["static"] }
+thiserror = { version = "2.0.19" } # Remove if not needed!
+ndarray = { version = "0.17.2" }
+sprs = { version = "0.11.4" }
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }

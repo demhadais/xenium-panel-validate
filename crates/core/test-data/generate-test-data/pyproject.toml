@@ -1,0 +1,7 @@
+[project]
+name = "generate-test-data"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "scanpy>=1.12.2",
+]
